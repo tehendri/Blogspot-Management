@@ -1,0 +1,2509 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Blog Vacancy Manager Pro</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: { extend: { colors: { primary: { 50:'#eff6ff',100:'#dbeafe',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8' } } } }
+  }
+</script>
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overscroll-behavior: none; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  .dark ::-webkit-scrollbar-thumb { background: #475569; }
+  .modal { display: none; }
+  .modal.active { display: flex; animation: fadeIn 0.2s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @media (max-width: 768px) { .modal-content { animation: slideUp 0.3s; } }
+  .badge { padding: 2px 10px; border-radius: 9999px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; }
+  .status-available { background: #dcfce7; color: #166534; }
+  .status-claimed { background: #fef3c7; color: #92400e; }
+  .status-active { background: #dbeafe; color: #1e40af; }
+  .status-inactive { background: #f3f4f6; color: #4b5563; }
+  .status-creating { background: #f3e8ff; color: #6b21a8; }
+  .dark .status-available { background: #14532d; color: #86efac; }
+  .dark .status-claimed { background: #78350f; color: #fcd34d; }
+  .dark .status-active { background: #1e3a8a; color: #93c5fd; }
+  .dark .status-inactive { background: #374151; color: #9ca3af; }
+  .dark .status-creating { background: #581c87; color: #d8b4fe; }
+  .tab-active { border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: 600; }
+  .dark .tab-active { border-color: #60a5fa; color: #60a5fa; }
+  .step-active { background: #2563eb; color: white; }
+  .step-done { background: #10b981; color: white; }
+  .step-pending { background: #e5e7eb; color: #6b7280; }
+  .dark .step-pending { background: #374151; color: #9ca3af; }
+  .strength-bar { transition: all 0.3s; }
+  .toast { animation: slideInRight 0.3s, fadeOut 0.3s 2.7s forwards; }
+  @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes fadeOut { to { opacity: 0; transform: translateX(100%); } }
+  .blog-card { transition: all 0.2s; }
+  .blog-card:active { transform: scale(0.98); }
+  .bottom-nav { padding-bottom: env(safe-area-inset-bottom); }
+  .sidebar-item { transition: all 0.15s; }
+  .sidebar-item:hover { background: rgba(255,255,255,0.1); }
+  .sidebar-item.active { background: rgba(255,255,255,0.2); border-left: 3px solid white; }
+  .browser-option, .account-option { transition: all 0.15s; cursor: pointer; }
+  .browser-option:hover, .account-option:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .browser-option.selected, .account-option.selected { border-color: #2563eb; background: #eff6ff; }
+  .dark .browser-option.selected, .dark .account-option.selected { border-color: #60a5fa; background: #1e3a8a; }
+  .fab { box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); }
+  .fab:active { transform: scale(0.95); }
+  .tabs-scroll::-webkit-scrollbar { display: none; }
+  .tabs-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+  .quota-bar { transition: width 0.5s ease; }
+  .account-card { transition: all 0.2s; }
+  .account-card:hover { transform: translateY(-2px); }
+  .recommend-badge { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+  body.logged-out .app-protected { display: none !important; }
+  #authScreen { min-height: 100vh; }
+</style>
+</head>
+
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen transition-colors">
+<!-- AUTH SCREEN -->
+<div id="authScreen" class="hidden fixed inset-0 z-[200] bg-gradient-to-br from-blue-700 via-indigo-700 to-purple-800 p-4 overflow-y-auto">
+  <div class="min-h-full flex items-center justify-center py-8">
+    <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+      <div class="p-6 text-center bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+        <div class="text-4xl mb-2">📊</div>
+        <h1 class="text-2xl font-bold">Blog Manager Online</h1>
+        <p class="text-sm text-blue-100 mt-1">Multi-User · Multi-Device · Cloud Database</p>
+      </div>
+      <div class="p-6">
+        <div id="authConfigError" class="hidden mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-xs"></div>
+        <div class="flex border-b mb-5">
+          <button id="loginTab" type="button" class="flex-1 pb-2 border-b-2 border-blue-600 text-blue-600 font-semibold text-sm">Login</button>
+          <button id="signupTab" type="button" class="flex-1 pb-2 border-b-2 border-transparent text-gray-500 text-sm">Daftar</button>
+        </div>
+        <form id="loginForm" class="space-y-3">
+          <div><label class="text-sm font-medium">Email</label><input id="authEmail" type="email" autocomplete="email" required class="w-full px-3 py-2 mt-1 border rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="nama@email.com"></div>
+          <div><label class="text-sm font-medium">Password</label><input id="authPassword" type="password" autocomplete="current-password" required class="w-full px-3 py-2 mt-1 border rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="••••••••"></div>
+          <button id="loginBtn" type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-semibold">Masuk</button>
+          <button id="forgotBtn" type="button" class="w-full text-xs text-blue-600 hover:underline">Lupa password?</button>
+        </form>
+        <form id="signupForm" class="space-y-3 hidden">
+          <div><label class="text-sm font-medium">Email</label><input id="signupEmail" type="email" autocomplete="email" required class="w-full px-3 py-2 mt-1 border rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="nama@email.com"></div>
+          <div><label class="text-sm font-medium">Password</label><input id="signupPassword" type="password" autocomplete="new-password" minlength="8" required class="w-full px-3 py-2 mt-1 border rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Minimal 8 karakter"></div>
+          <button id="signupBtn" type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-lg font-semibold">Buat Akun</button>
+          <p class="text-[11px] text-gray-500 text-center">Jika Email Confirmation diaktifkan di Supabase, Anda perlu memverifikasi email sebelum login.</p>
+        </form>
+        <div id="authMessage" class="hidden mt-4 p-3 rounded-lg text-xs"></div>
+        <div class="mt-5 pt-4 border-t text-[11px] text-gray-400 text-center">
+          Data aplikasi disimpan di PostgreSQL Supabase, bukan di browser. Password akun Gmail tidak disimpan ke database.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- SIDEBAR (Desktop) -->
+<aside class="app-protected hidden md:flex fixed left-0 top-0 bottom-0 w-64 bg-gradient-to-b from-blue-700 to-indigo-800 text-white flex-col z-40">
+  <div class="p-5 border-b border-white/10">
+    <h1 class="text-xl font-bold">📊 Blog Manager</h1>
+    <p class="text-xs text-blue-200 mt-1">Pro Edition v4.0 - Cloud Multi-User</p>
+  </div>
+  <nav class="flex-1 py-3">
+    <button onclick="switchView('dashboard')" data-view="dashboard" class="sidebar-item active w-full text-left px-5 py-3 flex items-center gap-3 text-sm">
+      <span class="text-lg">📊</span> Dashboard
+    </button>
+    <button onclick="switchView('blogs')" data-view="blogs" class="sidebar-item w-full text-left px-5 py-3 flex items-center gap-3 text-sm">
+      <span class="text-lg">📝</span> Daftar Blog
+    </button>
+    <button onclick="switchView('accounts')" data-view="accounts" class="sidebar-item w-full text-left px-5 py-3 flex items-center gap-3 text-sm">
+      <span class="text-lg">📧</span> Akun Gmail
+    </button>
+    <button onclick="switchView('create')" data-view="create" class="sidebar-item w-full text-left px-5 py-3 flex items-center gap-3 text-sm">
+      <span class="text-lg">🚀</span> Buat Blog
+    </button>
+    <button onclick="switchView('settings')" data-view="settings" class="sidebar-item w-full text-left px-5 py-3 flex items-center gap-3 text-sm">
+      <span class="text-lg">⚙️</span> Pengaturan
+    </button>
+  </nav>
+  <div class="p-4 border-t border-white/10">
+    <button onclick="exportJSON()" class="w-full bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg text-xs">💾 Backup Data</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="app-protected md:ml-64 pb-20 md:pb-0">
+  <!-- TOP BAR -->
+  <header class="sticky top-0 bg-white dark:bg-gray-800 shadow-sm z-30 border-b border-gray-200 dark:border-gray-700">
+    <div class="flex items-center justify-between px-4 md:px-6 py-3">
+      <div class="md:hidden">
+        <h1 class="text-lg font-bold">📊 Blog Manager</h1>
+      </div>
+      <div class="hidden md:block">
+        <h2 id="pageTitle" class="text-xl font-bold">Dashboard</h2>
+        <p id="pageSubtitle" class="text-xs text-gray-500 dark:text-gray-400"></p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="toggleDarkMode()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+          <span id="themeIcon">🌙</span>
+        </button>
+        <button onclick="openImportModal()" class="hidden md:flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">📥</button>
+        <button onclick="exportCSV()" class="hidden md:flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">📤</button>
+      </div>
+    </div>
+        <div id="userSessionBar" class="hidden items-center gap-2 ml-2">
+          <span id="syncStatus" class="hidden sm:inline text-[10px] px-2 py-1 rounded-full bg-gray-100 text-gray-600">☁️ Cloud</span>
+          <span id="userEmailLabel" class="hidden lg:inline text-xs text-gray-500 dark:text-gray-400 max-w-[180px] truncate"></span>
+          <button onclick="signOutUser()" class="px-2 py-1 text-xs rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600">Keluar</button>
+        </div>
+  </header>
+
+  <!-- VIEW: DASHBOARD -->
+  <div id="view-dashboard" class="view-container p-4 md:p-6">
+    <!-- Overall Capacity Banner -->
+    <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl p-5 mb-4 shadow-lg">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <p class="text-xs text-indigo-100">KAPASITAS TOTAL SEMUA AKUN</p>
+          <p class="text-3xl font-bold"><span id="cap-used">0</span> / <span id="cap-total">0</span> Blog</p>
+        </div>
+        <div class="text-5xl">📧</div>
+      </div>
+      <div class="w-full bg-white/20 rounded-full h-3 mb-2">
+        <div id="cap-bar" class="bg-white h-3 rounded-full quota-bar" style="width: 0%"></div>
+      </div>
+      <div class="flex justify-between text-xs text-indigo-100">
+        <span><span id="cap-accounts">0</span> Akun Gmail</span>
+        <span>Sisa: <span id="cap-remaining">0</span> blog lagi</span>
+      </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+      <div class="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border-l-4 border-blue-500">
+        <p class="text-xs text-gray-500 dark:text-gray-400">Total Blog</p>
+        <p id="stat-total" class="text-2xl font-bold">0</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border-l-4 border-green-500">
+        <p class="text-xs text-gray-500 dark:text-gray-400">Available</p>
+        <p id="stat-available" class="text-2xl font-bold text-green-600">0</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border-l-4 border-purple-500">
+        <p class="text-xs text-gray-500 dark:text-gray-400">Creating</p>
+        <p id="stat-creating" class="text-2xl font-bold text-purple-600">0</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border-l-4 border-yellow-500">
+        <p class="text-xs text-gray-500 dark:text-gray-400">Claimed</p>
+        <p id="stat-claimed" class="text-2xl font-bold text-yellow-600">0</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border-l-4 border-blue-500">
+        <p class="text-xs text-gray-500 dark:text-gray-400">Active</p>
+        <p id="stat-active" class="text-2xl font-bold text-blue-600">0</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border-l-4 border-gray-400">
+        <p class="text-xs text-gray-500 dark:text-gray-400">Inactive</p>
+        <p id="stat-inactive" class="text-2xl font-bold text-gray-600">0</p>
+      </div>
+    </div>
+
+    <!-- Account Quick View -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold flex items-center gap-2">📧 Akun Gmail Teratas</h3>
+        <button onclick="switchView('accounts')" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Kelola →</button>
+      </div>
+      <div id="topAccounts" class="space-y-2"></div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
+      <h3 class="font-bold mb-3">⚡ Aksi Cepat</h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <button onclick="switchView('create')" class="bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-3 rounded-xl hover:shadow-lg transition">
+          <div class="text-2xl mb-1">🚀</div>
+          <div class="text-xs font-semibold">Buat Blog</div>
+        </button>
+        <button onclick="openAddAccountModal()" class="bg-gradient-to-br from-pink-500 to-rose-600 text-white p-3 rounded-xl hover:shadow-lg transition">
+          <div class="text-2xl mb-1">📧</div>
+          <div class="text-xs font-semibold">Tambah Akun</div>
+        </button>
+        <button onclick="openImportModal()" class="bg-gradient-to-br from-blue-500 to-cyan-600 text-white p-3 rounded-xl hover:shadow-lg transition">
+          <div class="text-2xl mb-1">📥</div>
+          <div class="text-xs font-semibold">Import</div>
+        </button>
+        <button onclick="exportCSV()" class="bg-gradient-to-br from-green-500 to-emerald-600 text-white p-3 rounded-xl hover:shadow-lg transition">
+          <div class="text-2xl mb-1">📤</div>
+          <div class="text-xs font-semibold">Export</div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW: BLOGS -->
+  <div id="view-blogs" class="view-container hidden p-4 md:p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-4">
+      <div class="flex gap-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto tabs-scroll mb-3 -mx-1 px-1">
+        <button onclick="setTab('all')" data-tab="all" class="tab-btn pb-2 px-3 text-sm whitespace-nowrap tab-active">Semua</button>
+        <button onclick="setTab('available')" data-tab="available" class="tab-btn pb-2 px-3 text-sm whitespace-nowrap text-gray-500">Available</button>
+        <button onclick="setTab('creating')" data-tab="creating" class="tab-btn pb-2 px-3 text-sm whitespace-nowrap text-gray-500">Creating</button>
+        <button onclick="setTab('claimed')" data-tab="claimed" class="tab-btn pb-2 px-3 text-sm whitespace-nowrap text-gray-500">Claimed</button>
+        <button onclick="setTab('active')" data-tab="active" class="tab-btn pb-2 px-3 text-sm whitespace-nowrap text-gray-500">Active</button>
+        <button onclick="setTab('inactive')" data-tab="inactive" class="tab-btn pb-2 px-3 text-sm whitespace-nowrap text-gray-500">Inactive</button>
+      </div>
+      <div class="flex flex-col sm:flex-row gap-2">
+        <div class="relative flex-1">
+          <input id="searchInput" type="text" placeholder="🔍 Cari nama atau domain..." 
+                 class="w-full pl-3 pr-9 py-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+          <button onclick="document.getElementById('searchInput').value='';renderBlogs()" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-lg">×</button>
+        </div>
+        <select id="categoryFilter" class="px-3 py-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+          <option value="">Semua Kategori</option>
+          <option>General</option><option>Technology</option><option>Finance</option>
+          <option>Healthcare</option><option>Education</option><option>Engineering</option>
+          <option>Remote</option><option>Government</option><option>Retail</option>
+        </select>
+        <select id="accountFilter" class="px-3 py-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+          <option value="">Semua Akun</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Desktop Table -->
+    <div class="hidden md:block bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+            <tr>
+              <th class="px-4 py-3 text-left">#</th>
+              <th class="px-4 py-3 text-left">Nama Blog</th>
+              <th class="px-4 py-3 text-left">Akun</th>
+              <th class="px-4 py-3 text-left">Kategori</th>
+              <th class="px-4 py-3 text-left">Status</th>
+              <th class="px-4 py-3 text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="blogTableDesktop"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Mobile Cards -->
+    <div id="blogCards" class="md:hidden space-y-3"></div>
+
+    <div id="emptyState" class="hidden text-center py-12">
+      <p class="text-5xl mb-3">📭</p>
+      <p class="text-gray-500 dark:text-gray-400 mb-4">Belum ada blog</p>
+      <button onclick="openImportModal()" class="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm">📥 Import TXT</button>
+    </div>
+  </div>
+
+  <!-- VIEW: ACCOUNTS -->
+  <div id="view-accounts" class="view-container hidden p-4 md:p-6">
+    <!-- Summary -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm">
+        <p class="text-xs text-gray-500">Total Akun</p>
+        <p id="acc-total" class="text-2xl font-bold">0</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm">
+        <p class="text-xs text-gray-500">Kapasitas Total</p>
+        <p id="acc-capacity" class="text-2xl font-bold text-blue-600">0</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm">
+        <p class="text-xs text-gray-500">Terpakai</p>
+        <p id="acc-used" class="text-2xl font-bold text-purple-600">0</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm">
+        <p class="text-xs text-gray-500">Sisa Kuota</p>
+        <p id="acc-remaining" class="text-2xl font-bold text-green-600">0</p>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-4 flex flex-wrap gap-2">
+      <button onclick="openAddAccountModal()" class="flex-1 min-w-max bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+        + Tambah Akun Gmail
+      </button>
+      <button onclick="openImportAccountsModal()" class="flex-1 min-w-max bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+        📥 Import Akun
+      </button>
+      <button onclick="exportAccountsCSV()" class="flex-1 min-w-max bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+        📤 Export Akun
+      </button>
+    </div>
+
+    <!-- Account List -->
+    <div id="accountList" class="space-y-3"></div>
+
+    <div id="noAccounts" class="hidden bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center">
+      <p class="text-5xl mb-3">📧</p>
+      <h3 class="font-bold mb-2">Belum Ada Akun Gmail</h3>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Tambahkan akun Gmail untuk mulai membuat blog. Setiap akun bisa menampung hingga 100 blog.</p>
+      <button onclick="openAddAccountModal()" class="bg-pink-600 hover:bg-pink-700 text-white px-5 py-2 rounded-lg text-sm">+ Tambah Akun Pertama</button>
+    </div>
+  </div>
+
+  <!-- VIEW: CREATE -->
+  <div id="view-create" class="view-container hidden p-4 md:p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 text-center">
+      <p class="text-5xl mb-3">🚀</p>
+      <h3 class="text-xl font-bold mb-2">Mulai Pembuatan Blog</h3>
+      <p class="text-gray-500 dark:text-gray-400 mb-6 text-sm">Pilih blog dengan status "Available" untuk mulai dibuat</p>
+      <div id="availableList" class="space-y-2 max-h-96 overflow-y-auto"></div>
+      <div id="noAvailable" class="hidden text-gray-400 py-8">
+        <p>Tidak ada blog available. Import daftar blog terlebih dahulu.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW: SETTINGS -->
+  <div id="view-settings" class="view-container hidden p-4 md:p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 space-y-4">
+      <h3 class="font-bold">⚙️ Pengaturan</h3>
+      
+      <div class="flex items-center justify-between p-3 border dark:border-gray-700 rounded-lg">
+        <div>
+          <p class="font-medium text-sm">Mode Gelap</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400">Tema gelap untuk kenyamanan mata</p>
+        </div>
+        <button onclick="toggleDarkMode()" class="relative w-12 h-6 bg-gray-300 dark:bg-blue-600 rounded-full transition">
+          <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform dark:translate-x-6"></span>
+        </button>
+      </div>
+
+      <div class="p-3 border dark:border-gray-700 rounded-lg">
+        <p class="font-medium text-sm mb-2">Browser Default</p>
+        <select id="defaultBrowser" class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+          <option value="default">Default Browser</option>
+          <option value="chrome">Google Chrome</option>
+          <option value="firefox">Mozilla Firefox</option>
+          <option value="edge">Microsoft Edge</option>
+          <option value="brave">Brave Browser</option>
+          <option value="safari">Safari (Mac/iOS)</option>
+          <option value="opera">Opera</option>
+          <option value="ask">Tanya Setiap Kali</option>
+        </select>
+      </div>
+
+      <div class="p-3 border dark:border-gray-700 rounded-lg">
+        <p class="font-medium text-sm mb-2">Limit Pembuatan Blog (Standar Google)</p>
+        <div class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+          <div class="flex justify-between"><span>Max blog per akun</span><strong>100</strong></div>
+          <div class="flex justify-between"><span>Max pembuatan per hari/akun</span><strong>10</strong></div>
+          <div class="flex justify-between"><span>Max pembuatan per jam/akun</span><strong>3</strong></div>
+          <div class="flex justify-between"><span>Cooldown antar pembuatan</span><strong>5 menit</strong></div>
+        </div>
+      </div>
+
+      <div class="border-t dark:border-gray-700 pt-4">
+        <p class="font-medium text-sm mb-3">Data & Backup</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="exportJSON()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm">💾 Backup JSON</button>
+          <button onclick="exportCSV()" class="bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg text-sm">📤 Export CSV</button>
+          <button onclick="openImportModal()" class="bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm">📥 Import Blog</button>
+          <button onclick="openImportAccountsModal()" class="bg-pink-600 hover:bg-pink-700 text-white py-2 rounded-lg text-sm">📧 Import Akun</button>
+        </div>
+      </div>
+
+      <div class="border-t dark:border-gray-700 pt-4">
+        <p class="font-medium text-sm mb-3 text-red-600">Zona Bahaya</p>
+        <button onclick="clearAllData()" class="w-full bg-red-100 dark:bg-red-900/30 hover:bg-red-200 text-red-700 dark:text-red-300 py-2 rounded-lg text-sm font-medium">
+          🗑️ Hapus Semua Data
+        </button>
+      </div>
+
+      <div class="text-center text-xs text-gray-400 pt-4 border-t dark:border-gray-700">
+        <p>Blog Vacancy Manager Pro v4.0 Online</p>
+        <p>Multi-Account Edition</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="app-protected md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-30 bottom-nav">
+  <div class="grid grid-cols-5">
+    <button onclick="switchView('dashboard')" data-mview="dashboard" class="mnav-btn py-2 flex flex-col items-center gap-0.5 text-blue-600 dark:text-blue-400">
+      <span class="text-xl">📊</span><span class="text-[10px] font-medium">Home</span>
+    </button>
+    <button onclick="switchView('blogs')" data-mview="blogs" class="mnav-btn py-2 flex flex-col items-center gap-0.5 text-gray-500 dark:text-gray-400">
+      <span class="text-xl">📝</span><span class="text-[10px]">Blog</span>
+    </button>
+    <button onclick="showQuickCreate()" class="py-2 flex flex-col items-center gap-0.5 relative -top-4">
+      <div class="fab w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-2xl">🚀</div>
+      <span class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Buat</span>
+    </button>
+    <button onclick="switchView('accounts')" data-mview="accounts" class="mnav-btn py-2 flex flex-col items-center gap-0.5 text-gray-500 dark:text-gray-400">
+      <span class="text-xl">📧</span><span class="text-[10px]">Akun</span>
+    </button>
+    <button onclick="switchView('settings')" data-mview="settings" class="mnav-btn py-2 flex flex-col items-center gap-0.5 text-gray-500 dark:text-gray-400">
+      <span class="text-xl">⚙️</span><span class="text-[10px]">Setting</span>
+    </button>
+  </div>
+</nav>
+
+<!-- FAB Desktop -->
+<button onclick="showQuickCreate()" class="app-protected hidden md:flex fixed bottom-6 right-6 fab w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full items-center justify-center text-white text-2xl z-30 hover:scale-110 transition">🚀</button>
+
+<!-- ============ MODAL: CREATE WIZARD (4 Steps) ============ -->
+<div id="createModal" class="modal fixed inset-0 bg-black/60 items-center justify-center z-50 p-0 md:p-4">
+  <div class="modal-content bg-white dark:bg-gray-800 w-full md:max-w-2xl md:rounded-xl md:shadow-xl h-full md:h-auto overflow-y-auto">
+    <div class="sticky top-0 bg-white dark:bg-gray-800 p-4 border-b dark:border-gray-700 flex justify-between items-center z-10">
+      <div>
+        <h3 class="text-lg font-bold">🚀 Wizard Pembuatan Blog</h3>
+        <p id="createTargetBlog" class="text-xs text-gray-500 dark:text-gray-400"></p>
+      </div>
+      <button onclick="closeCreateModal()" class="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-xl">×</button>
+    </div>
+
+    <!-- Step Indicator -->
+    <div class="px-4 py-3 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-1">
+          <div id="step1ind" class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold step-active">1</div>
+          <span class="text-xs hidden sm:inline">Akun</span>
+        </div>
+        <div class="flex-1 h-0.5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+        <div class="flex items-center gap-1">
+          <div id="step2ind" class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold step-pending">2</div>
+          <span class="text-xs hidden sm:inline">Validasi</span>
+        </div>
+        <div class="flex-1 h-0.5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+        <div class="flex items-center gap-1">
+          <div id="step3ind" class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold step-pending">3</div>
+          <span class="text-xs hidden sm:inline">Browser</span>
+        </div>
+        <div class="flex-1 h-0.5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+        <div class="flex items-center gap-1">
+          <div id="step4ind" class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold step-pending">4</div>
+          <span class="text-xs hidden sm:inline">Eksekusi</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 1: PILIH AKUN -->
+    <div id="step1" class="p-4 space-y-3">
+      <div class="bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500 p-3 rounded text-xs text-blue-800 dark:text-blue-200">
+        <strong>📧 Pilih Akun Gmail</strong> yang akan digunakan untuk membuat blog. Akun dengan badge <span class="recommend-badge bg-yellow-400 text-yellow-900 px-1 rounded">⭐ Rekomendasi</span> memiliki kuota terbisa.
+      </div>
+
+      <div id="accountOptions" class="space-y-2 max-h-96 overflow-y-auto"></div>
+
+      <div id="noAccountForCreate" class="hidden bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 p-4 rounded text-center">
+        <p class="text-3xl mb-2">⚠️</p>
+        <p class="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Belum ada akun Gmail</p>
+        <p class="text-xs text-yellow-700 dark:text-yellow-300 mb-3">Tambahkan akun Gmail terlebih dahulu untuk mulai membuat blog.</p>
+        <button onclick="closeCreateModal();openAddAccountModal()" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-lg text-sm">+ Tambah Akun</button>
+      </div>
+
+      <div class="bg-purple-50 dark:bg-purple-900/30 p-3 rounded text-xs text-purple-800 dark:text-purple-200">
+        💡 <strong>Tips:</strong> Setiap akun bisa membuat max 100 blog, 10 blog/hari, 3 blog/jam. Tambahkan banyak akun untuk kapasitas lebih besar.
+      </div>
+    </div>
+
+    <!-- STEP 2: VALIDASI -->
+    <div id="step2" class="p-4 space-y-3 hidden">
+      <h4 class="font-semibold">📝 Review & Validasi</h4>
+      <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 space-y-2 text-sm">
+        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Nama Blog:</span><span id="revName" class="font-mono font-semibold"></span></div>
+        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Domain:</span><span id="revDomain" class="font-mono text-blue-600"></span></div>
+        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Akun:</span><span id="revAccount" class="font-mono text-xs"></span></div>
+        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Kategori:</span><span id="revCategory"></span></div>
+      </div>
+      <div id="validationResults" class="space-y-1"></div>
+      <div class="bg-purple-50 dark:bg-purple-900/30 border-l-4 border-purple-500 p-3 rounded text-xs">
+        <strong>📊 Quota Akun Terpilih:</strong> <span id="revQuota"></span>
+      </div>
+    </div>
+
+    <!-- STEP 3: PILIH BROWSER -->
+    <div id="step3" class="p-4 space-y-3 hidden">
+      <h4 class="font-semibold">🌐 Pilih Browser</h4>
+      <p class="text-xs text-gray-500 dark:text-gray-400">Pilih browser untuk membuka target. Di desktop, browser web dapat fallback ke browser default.</p>
+      <div id="detectedPlatform" class="bg-blue-50 dark:bg-blue-900/30 p-2 rounded text-xs text-blue-800 dark:text-blue-200"></div>
+      <div id="browserOptions" class="grid grid-cols-2 gap-2"></div>
+    </div>
+
+    <!-- STEP 4: EKSEKUSI -->
+    <div id="step4" class="p-4 space-y-3 hidden">
+      <div class="bg-green-50 dark:bg-green-900/30 border-l-4 border-green-500 p-4 rounded">
+        <h4 class="font-semibold text-green-800 dark:text-green-200 mb-2">✅ Siap Membuat Blog!</h4>
+        <p class="text-sm text-green-700 dark:text-green-300">Ikuti langkah berikut:</p>
+      </div>
+      <ol class="space-y-2 text-sm">
+        <li class="flex gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+          <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+          <div><p class="font-semibold">Login dengan akun terpilih</p><p class="text-gray-600 dark:text-gray-400 text-xs" id="execAccount"></p></div>
+        </li>
+        <li class="flex gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+          <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+          <div><p class="font-semibold">Klik "Create New Blog"</p><p class="text-gray-600 dark:text-gray-400 text-xs">Alamat: <code id="execDomain" class="bg-gray-200 dark:bg-gray-700 px-1 rounded"></code></p></div>
+        </li>
+        <li class="flex gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+          <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
+          <div><p class="font-semibold">Selesaikan Setup</p><p class="text-gray-600 dark:text-gray-400 text-xs">Pilih template, klik "Create blog!"</p></div>
+        </li>
+      </ol>
+      <div class="flex gap-2">
+        <button id="btnOpenBrowser" onclick="openInSelectedBrowser()" class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold">🚀 Buka di Browser</button>
+        <button onclick="copyAccountInfo()" class="bg-gray-200 dark:bg-gray-700 px-4 py-3 rounded-lg" title="Copy info akun">📋</button>
+      </div>
+      <div class="border-t dark:border-gray-700 pt-3 space-y-2">
+        <p class="text-sm font-semibold">Setelah blog berhasil dibuat:</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="markAsClaimed()" class="bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded-lg text-sm font-semibold">✓ Tandai Claimed</button>
+          <button onclick="markAsCreating()" class="bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg text-sm font-semibold">⏳ Sedang Dibuat</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="sticky bottom-0 p-4 border-t dark:border-gray-700 bg-white dark:bg-gray-800 flex justify-between">
+      <button id="btnPrev" onclick="prevStep()" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg hidden">← Kembali</button>
+      <div></div>
+      <button id="btnNext" onclick="nextStep()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm">Selanjutnya →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: ADD/EDIT ACCOUNT ============ -->
+<div id="accountFormModal" class="modal fixed inset-0 bg-black/60 items-center justify-center z-50 p-0 md:p-4">
+  <div class="modal-content bg-white dark:bg-gray-800 w-full md:max-w-lg md:rounded-xl md:shadow-xl h-full md:h-auto overflow-y-auto">
+    <div class="sticky top-0 bg-white dark:bg-gray-800 p-4 border-b dark:border-gray-700 flex justify-between items-center">
+      <h3 id="accountModalTitle" class="text-lg font-bold">📧 Tambah Akun Gmail</h3>
+      <button onclick="closeAccountModal()" class="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-xl">×</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <input type="hidden" id="accountId">
+      <div class="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 p-3 rounded text-xs text-yellow-800 dark:text-yellow-200">
+        ⚠️ <strong>Keamanan:</strong> Password hanya dipakai selama sesi halaman dan tidak disimpan di localStorage/backup. Gunakan password manager untuk penyimpanan permanen.
+      </div>
+      <div>
+        <label class="text-sm font-medium">Email Gmail *</label>
+        <input id="accountEmail" type="email" placeholder="akun@gmail.com" 
+               class="w-full px-3 py-2 mt-1 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+      </div>
+      <div>
+        <label class="text-sm font-medium">Password *</label>
+        <div class="relative mt-1">
+          <input id="accountPassword" type="password" placeholder="Password akun Gmail" 
+                 class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none pr-10 text-sm">
+          <button onclick="togglePwd('accountPassword')" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 px-2">👁️</button>
+        </div>
+      </div>
+      <div>
+        <label class="text-sm font-medium">Status</label>
+        <select id="accountStatus" class="w-full px-3 py-2 mt-1 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+          <option value="active">✅ Active (Bisa digunakan)</option>
+          <option value="inactive">⏸️ Inactive (Tidak dipakai)</option>
+          <option value="blocked">🚫 Blocked (Akun kena limit)</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-sm font-medium">Catatan</label>
+        <textarea id="accountNotes" rows="2" placeholder="Contoh: Akun utama, nomor HP recovery, dll" 
+                  class="w-full px-3 py-2 mt-1 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"></textarea>
+      </div>
+    </div>
+    <div class="sticky bottom-0 p-4 border-t dark:border-gray-700 bg-white dark:bg-gray-800 flex justify-end gap-2">
+      <button onclick="closeAccountModal()" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm">Batal</button>
+      <button onclick="saveAccount()" class="px-5 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg font-medium text-sm">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: ACCOUNT DETAIL ============ -->
+<div id="accountDetailModal" class="modal fixed inset-0 bg-black/60 items-center justify-center z-50 p-0 md:p-4">
+  <div class="modal-content bg-white dark:bg-gray-800 w-full md:max-w-2xl md:rounded-xl md:shadow-xl h-full md:h-auto overflow-y-auto">
+    <div class="sticky top-0 bg-white dark:bg-gray-800 p-4 border-b dark:border-gray-700 flex justify-between items-center">
+      <h3 class="text-lg font-bold">📧 Detail Akun</h3>
+      <button onclick="closeAccountDetail()" class="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-xl">×</button>
+    </div>
+    <div id="accountDetailContent" class="p-4"></div>
+  </div>
+</div>
+
+<!-- ============ MODAL: ADD/EDIT BLOG ============ -->
+<div id="formModal" class="modal fixed inset-0 bg-black/60 items-center justify-center z-50 p-0 md:p-4">
+  <div class="modal-content bg-white dark:bg-gray-800 w-full md:max-w-lg md:rounded-xl md:shadow-xl h-full md:h-auto overflow-y-auto">
+    <div class="sticky top-0 bg-white dark:bg-gray-800 p-4 border-b dark:border-gray-700 flex justify-between items-center">
+      <h3 id="modalTitle" class="text-lg font-bold">Tambah Blog</h3>
+      <button onclick="closeModal()" class="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-xl">×</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <input type="hidden" id="blogId">
+      <div>
+        <label class="text-sm font-medium">Nama Blog</label>
+        <input id="blogName" type="text" placeholder="contoh: globaljobshub" 
+               class="w-full px-3 py-2 mt-1 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+      </div>
+      <div>
+        <label class="text-sm font-medium">Domain</label>
+        <input id="blogDomain" type="text" class="w-full px-3 py-2 mt-1 border dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-900 text-sm" readonly>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-sm font-medium">Kategori</label>
+          <select id="blogCategory" class="w-full px-3 py-2 mt-1 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+            <option>General</option><option>Technology</option><option>Finance</option>
+            <option>Healthcare</option><option>Education</option><option>Engineering</option>
+            <option>Remote</option><option>Government</option><option>Retail</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm font-medium">Status</label>
+          <select id="blogStatus" class="w-full px-3 py-2 mt-1 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+            <option value="available">Available</option>
+            <option value="creating">Creating</option>
+            <option value="claimed">Claimed</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="text-sm font-medium">Akun Gmail</label>
+        <select id="blogAccount" class="w-full px-3 py-2 mt-1 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+          <option value="">- Belum dialokasikan -</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-sm font-medium">Catatan</label>
+        <textarea id="blogNotes" rows="2" class="w-full px-3 py-2 mt-1 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"></textarea>
+      </div>
+    </div>
+    <div class="sticky bottom-0 p-4 border-t dark:border-gray-700 bg-white dark:bg-gray-800 flex justify-end gap-2">
+      <button onclick="closeModal()" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm">Batal</button>
+      <button onclick="saveBlog()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: IMPORT ============ -->
+<div id="importModal" class="modal fixed inset-0 bg-black/60 items-center justify-center z-50 p-0 md:p-4">
+  <div class="modal-content bg-white dark:bg-gray-800 w-full md:max-w-md md:rounded-xl md:shadow-xl h-full md:h-auto overflow-y-auto">
+    <div class="sticky top-0 bg-white dark:bg-gray-800 p-4 border-b dark:border-gray-700 flex justify-between items-center">
+      <h3 class="text-lg font-bold">📥 Import Blog</h3>
+      <button onclick="closeImportModal()" class="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-xl">×</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <p class="text-sm text-gray-600 dark:text-gray-400">Pilih file .txt atau .json</p>
+      <input type="file" id="fileInput" accept=".txt,.json" class="w-full text-sm p-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+      <div class="bg-blue-50 dark:bg-blue-900/30 p-3 rounded text-xs text-blue-800 dark:text-blue-200">
+        💡 Format TXT: <code>1. nama - nama.blogspot.com</code>
+      </div>
+    </div>
+    <div class="sticky bottom-0 p-4 border-t dark:border-gray-700 bg-white dark:bg-gray-800 flex justify-end gap-2">
+      <button onclick="closeImportModal()" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm">Batal</button>
+      <button onclick="importFile()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm">Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: IMPORT ACCOUNTS ============ -->
+<div id="importAccountsModal" class="modal fixed inset-0 bg-black/60 items-center justify-center z-50 p-0 md:p-4">
+  <div class="modal-content bg-white dark:bg-gray-800 w-full md:max-w-md md:rounded-xl md:shadow-xl h-full md:h-auto overflow-y-auto">
+    <div class="sticky top-0 bg-white dark:bg-gray-800 p-4 border-b dark:border-gray-700 flex justify-between items-center">
+      <h3 class="text-lg font-bold">📧 Import Akun Gmail</h3>
+      <button onclick="closeImportAccountsModal()" class="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-xl">×</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <p class="text-sm text-gray-600 dark:text-gray-400">Pilih file .txt atau .csv. Password tidak disimpan di localStorage dan tidak ikut backup.</p>
+      <input type="file" id="accountFileInput" accept=".txt,.csv" class="w-full text-sm p-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+      <div class="bg-pink-50 dark:bg-pink-900/30 p-3 rounded text-xs text-pink-800 dark:text-pink-200">
+        💡 <strong>Format TXT:</strong> satu akun per baris<br>
+        <code>email@gmail.com|password|catatan</code><br><br>
+        Atau format sederhana:<br>
+        <code>email@gmail.com</code><br>
+        Akun tanpa password akan dibuat <strong>Inactive</strong> sampai credential diisi.
+      </div>
+    </div>
+    <div class="sticky bottom-0 p-4 border-t dark:border-gray-700 bg-white dark:bg-gray-800 flex justify-end gap-2">
+      <button onclick="closeImportAccountsModal()" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm">Batal</button>
+      <button onclick="importAccounts()" class="px-5 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg font-medium text-sm">Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: BROWSER CHOOSER ============ -->
+<div id="browserModal" class="modal fixed inset-0 bg-black/60 items-end md:items-center justify-center z-50">
+  <div class="modal-content bg-white dark:bg-gray-800 w-full md:max-w-md md:rounded-xl rounded-t-2xl max-h-[80vh] overflow-y-auto">
+    <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+      <h3 class="font-bold">🌐 Pilih Browser</h3>
+      <button onclick="closeBrowserModal()" class="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-xl">×</button>
+    </div>
+    <div id="quickBrowserOptions" class="p-4 space-y-2"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toastContainer" class="fixed top-4 right-4 z-[100] space-y-2 pointer-events-none"></div>
+
+<!-- CONFIRM -->
+<div id="confirmModal" class="modal fixed inset-0 bg-black/60 items-center justify-center z-50 p-4">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm">
+    <div class="p-5">
+      <div class="flex items-center gap-3 mb-3">
+        <div id="confirmIcon" class="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center text-xl">⚠️</div>
+        <h3 id="confirmTitle" class="font-bold">Konfirmasi</h3>
+      </div>
+      <p id="confirmMessage" class="text-sm text-gray-600 dark:text-gray-400"></p>
+    </div>
+    <div class="p-4 border-t dark:border-gray-700 flex justify-end gap-2">
+      <button id="confirmCancel" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm">Batal</button>
+      <button id="confirmOk" class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+// ============ ONLINE CONFIG / STATE ============
+const APP_VERSION = '4.0-online';
+const SUPABASE_CONFIG = {
+  // Replace these two values with your Supabase Project URL and Publishable Key.
+  // The publishable key is safe to expose in browser code when RLS is configured correctly.
+  url: 'https://YOUR-PROJECT.supabase.co',
+  publishableKey: 'YOUR_SB_PUBLISHABLE_KEY'
+};
+
+let sb = null;
+let currentUser = null;
+let realtimeChannel = null;
+let loadInFlight = null;
+let dbQueue = Promise.resolve();
+let lastSnapshots = { blogs: [], accounts: [], settings: {} };
+const sessionCredentials = new Map();
+
+let blogs = [];
+let accounts = [];
+let creationLog = [];
+let settings = { defaultBrowser: 'default', darkMode: false, timezone: 'Asia/Jakarta', appVersion: APP_VERSION };
+let currentTab = 'all';
+let currentStep = 1;
+let currentCreateBlogId = null;
+let selectedAccountId = null;
+let selectedBrowser = 'default';
+let currentView = 'dashboard';
+let confirmCallback = null;
+
+const STORAGE_KEYS = { blogs: 'blogs', accounts: 'accounts', creationLog: 'creationLog', settings: 'settings' };
+
+function cloneData(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function isConfigured() {
+  return Boolean(
+    SUPABASE_CONFIG.url &&
+    SUPABASE_CONFIG.publishableKey &&
+    !SUPABASE_CONFIG.url.includes('YOUR-PROJECT') &&
+    !SUPABASE_CONFIG.publishableKey.includes('YOUR_SB_')
+  );
+}
+
+function setAuthMessage(message, type = 'info') {
+  const el = document.getElementById('authMessage');
+  if (!el) return;
+  const cls = { info:'bg-blue-50 text-blue-700', success:'bg-green-50 text-green-700', error:'bg-red-50 text-red-700', warning:'bg-yellow-50 text-yellow-700' }[type] || 'bg-gray-50 text-gray-700';
+  el.className = `mt-4 p-3 rounded-lg text-xs ${cls}`;
+  el.textContent = String(message);
+  el.classList.remove('hidden');
+}
+
+function setAuthScreen(show) {
+  document.body.classList.toggle('logged-out', show);
+  document.getElementById('authScreen')?.classList.toggle('hidden', !show);
+  document.getElementById('userSessionBar')?.classList.toggle('hidden', show);
+  document.getElementById('userSessionBar')?.classList.toggle('flex', !show);
+}
+
+function normalizeId(value) {
+  const raw = String(value ?? '').trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw) ? raw : createId();
+}
+
+function createId() {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') return globalThis.crypto.randomUUID();
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function rowToBlog(r) {
+  return { id:r.id, name:r.name, domain:r.domain, category:r.category, status:r.status, notes:r.notes || '', accountId:r.account_id || null, createdAt:r.created_at, updatedAt:r.updated_at, creationStartedAt:r.creation_started_at || null };
+}
+function rowToAccount(r) {
+  return { id:r.id, email:r.email, status:r.status, notes:r.notes || '', createdAt:r.created_at, updatedAt:r.updated_at };
+}
+function blogToRow(b, userId) {
+  return { id:b.id, user_id:userId, name:b.name, domain:b.domain, category:b.category || 'General', status:b.status || 'available', notes:b.notes || '', account_id:b.accountId || null, creation_started_at:b.creationStartedAt || null, created_at:b.createdAt || new Date().toISOString(), updated_at:b.updatedAt || new Date().toISOString() };
+}
+function accountToRow(a, userId) {
+  return { id:a.id, user_id:userId, email:a.email, status:a.status || 'active', notes:a.notes || '', created_at:a.createdAt || new Date().toISOString(), updated_at:a.updatedAt || new Date().toISOString() };
+}
+
+async function loadCloudData() {
+  if (!sb || !currentUser) return;
+  if (loadInFlight) return loadInFlight;
+  loadInFlight = (async () => {
+    setSyncStatus('syncing');
+    const [blogsRes, accountsRes, logsRes, settingsRes] = await Promise.all([
+      sb.from('blogs').select('*').order('created_at', { ascending: true }),
+      sb.from('gmail_accounts').select('*').order('created_at', { ascending: true }),
+      sb.from('creation_logs').select('*').order('created_at', { ascending: false }),
+      sb.from('user_settings').select('*').maybeSingle()
+    ]);
+    const firstError = [blogsRes, accountsRes, logsRes, settingsRes].find(r => r.error)?.error;
+    if (firstError) throw firstError;
+    blogs = blogsRes.data.map(rowToBlog);
+    accounts = accountsRes.data.map(rowToAccount);
+    creationLog = logsRes.data.map(l => ({ id:l.id, blogId:l.blog_id || null, accountId:l.account_id || null, timestamp:new Date(l.created_at).getTime(), createdAt:l.created_at }));
+    settings = settingsRes.data ? { ...settings, defaultBrowser: settingsRes.data.default_browser || 'default', darkMode: Boolean(settingsRes.data.dark_mode), timezone: settingsRes.data.timezone || 'Asia/Jakarta', appVersion: APP_VERSION } : { defaultBrowser:'default', darkMode:false, timezone:'Asia/Jakarta', appVersion:APP_VERSION };
+    selectedBrowser = settings.defaultBrowser || 'default';
+    lastSnapshots = { blogs:cloneData(blogs), accounts:cloneData(accounts), settings:cloneData(settings) };
+    applyTheme();
+    renderAll();
+    setSyncStatus('online');
+  })().catch(err => {
+    console.error('[Blog Manager] Cloud load failed', err);
+    setSyncStatus('error');
+    showToast(`Gagal memuat database: ${err.message || err}`, 'error');
+    throw err;
+  }).finally(() => { loadInFlight = null; });
+  return loadInFlight;
+}
+
+function persistBlogs(next, snapshot) {
+  if (!currentUser) return Promise.resolve(false);
+  const nextMap = new Map(next.map(x => [x.id, x]));
+  const snapMap = new Map((snapshot || []).map(x => [x.id, x]));
+  const changed = [...nextMap.values()].filter(x => JSON.stringify(x) !== JSON.stringify(snapMap.get(x.id)));
+  const removed = [...snapMap.keys()].filter(id => !nextMap.has(id));
+  return (async () => {
+    if (changed.length) {
+      const { error } = await sb.from('blogs').upsert(changed.map(x => blogToRow(x, currentUser.id)), { onConflict:'id' });
+      if (error) throw error;
+    }
+    if (removed.length) {
+      const { error } = await sb.from('blogs').delete().in('id', removed);
+      if (error) throw error;
+    }
+    return true;
+  })();
+}
+
+function persistAccounts(next, snapshot) {
+  if (!currentUser) return Promise.resolve(false);
+  const nextMap = new Map(next.map(x => [x.id, x]));
+  const snapMap = new Map((snapshot || []).map(x => [x.id, x]));
+  const changed = [...nextMap.values()].filter(x => JSON.stringify(x) !== JSON.stringify(snapMap.get(x.id)));
+  const removed = [...snapMap.keys()].filter(id => !nextMap.has(id));
+  return (async () => {
+    if (changed.length) {
+      const { error } = await sb.from('gmail_accounts').upsert(changed.map(x => accountToRow(x, currentUser.id)), { onConflict:'id' });
+      if (error) throw error;
+    }
+    if (removed.length) {
+      const { error } = await sb.from('gmail_accounts').delete().in('id', removed);
+      if (error) throw error;
+    }
+    return true;
+  })();
+}
+
+function persistSettings(next) {
+  if (!currentUser) return Promise.resolve(false);
+  const row = { user_id:currentUser.id, default_browser:next.defaultBrowser || 'default', dark_mode:Boolean(next.darkMode), timezone:next.timezone || 'Asia/Jakarta', updated_at:new Date().toISOString() };
+  return sb.from('user_settings').upsert(row, { onConflict:'user_id' }).then(({error}) => { if (error) throw error; return true; });
+}
+
+function saveJson(key, value) {
+  if (!currentUser || !sb) return true;
+  const captured = cloneData(value);
+  dbQueue = dbQueue.then(async () => {
+    try {
+      setSyncStatus('syncing');
+      if (key === STORAGE_KEYS.blogs) {
+        await persistBlogs(captured, lastSnapshots.blogs);
+        lastSnapshots.blogs = cloneData(captured);
+      } else if (key === STORAGE_KEYS.accounts) {
+        await persistAccounts(captured, lastSnapshots.accounts);
+        lastSnapshots.accounts = cloneData(captured);
+      } else if (key === STORAGE_KEYS.settings) {
+        await persistSettings(captured);
+        lastSnapshots.settings = cloneData(captured);
+      }
+      setSyncStatus('online');
+    } catch (err) {
+      console.error('[Blog Manager] Save failed', key, err);
+      setSyncStatus('error');
+      showToast(`Gagal menyimpan ke cloud: ${err.message || err}`, 'error');
+    }
+  });
+  return dbQueue;
+}
+
+function saveState() {
+  saveJson(STORAGE_KEYS.blogs, blogs);
+  saveJson(STORAGE_KEYS.accounts, accounts);
+  saveJson(STORAGE_KEYS.settings, settings);
+  return dbQueue;
+}
+
+function setSyncStatus(state) {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  const styles = {
+    online: ['☁️ Tersinkron', 'bg-green-100 text-green-700'],
+    syncing: ['🔄 Sinkronisasi', 'bg-blue-100 text-blue-700'],
+    error: ['⚠️ Offline/Error', 'bg-red-100 text-red-700']
+  };
+  const [label, cls] = styles[state] || styles.error;
+  el.textContent = label;
+  el.className = `hidden sm:inline text-[10px] px-2 py-1 rounded-full ${cls}`;
+}
+
+function renderAll() {
+  updateDashboard();
+  renderBlogs();
+  renderAccounts();
+  renderAvailableList();
+}
+
+function applyTheme() {
+  const isDark = Boolean(settings.darkMode);
+  document.documentElement.classList.toggle('dark', isDark);
+  const icon = document.getElementById('themeIcon');
+  if (icon) icon.textContent = isDark ? '☀️' : '🌙';
+}
+
+function setupRealtime() {
+  if (!sb || !currentUser) return;
+  if (realtimeChannel) sb.removeChannel(realtimeChannel);
+  realtimeChannel = sb.channel(`blog-manager-${currentUser.id}`)
+    .on('postgres_changes', { event:'*', schema:'public', table:'blogs', filter:`user_id=eq.${currentUser.id}` }, () => refreshRealtime())
+    .on('postgres_changes', { event:'*', schema:'public', table:'gmail_accounts', filter:`user_id=eq.${currentUser.id}` }, () => refreshRealtime())
+    .on('postgres_changes', { event:'*', schema:'public', table:'creation_logs', filter:`user_id=eq.${currentUser.id}` }, () => refreshRealtime())
+    .on('postgres_changes', { event:'*', schema:'public', table:'user_settings', filter:`user_id=eq.${currentUser.id}` }, () => refreshRealtime())
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') setSyncStatus('online');
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setSyncStatus('error');
+    });
+}
+
+let realtimeRefreshTimer = null;
+function refreshRealtime() {
+  clearTimeout(realtimeRefreshTimer);
+  realtimeRefreshTimer = setTimeout(() => loadCloudData().catch(() => {}), 200);
+}
+
+async function refreshNow() {
+  if (!currentUser) return;
+  try { await loadCloudData(); } catch (_) {}
+}
+
+function normalizeImportedBackup(data) {
+  const rawBlogs = Array.isArray(data) ? data : (Array.isArray(data?.blogs) ? data.blogs : []);
+  const rawAccounts = Array.isArray(data?.accounts) ? data.accounts : [];
+  const rawLogs = Array.isArray(data?.creationLog) ? data.creationLog : [];
+  const accountIdMap = new Map();
+  const importedAccounts = [];
+  for (const a of rawAccounts) {
+    const email = String(a?.email || '').trim().toLowerCase();
+    if (!validateEmailFormat(email) || importedAccounts.some(x => x.email === email) || accounts.some(x => x.email === email)) continue;
+    const id = createId();
+    accountIdMap.set(String(a?.id || ''), id);
+    importedAccounts.push({ id, email, status:['active','inactive','blocked'].includes(a?.status) ? a.status : 'active', notes:String(a?.notes || ''), createdAt:a?.createdAt || new Date().toISOString(), updatedAt:new Date().toISOString() });
+    if (a?.password) sessionCredentials.set(id, String(a.password));
+  }
+  const importedBlogs = [];
+  const blogIdMap = new Map();
+  for (const b of rawBlogs) {
+    const name = String(b?.name || '').trim().toLowerCase();
+    if (validateBlogName(name).length || importedBlogs.some(x => x.name === name) || blogs.some(x => x.name === name)) continue;
+    const id = createId();
+    blogIdMap.set(String(b?.id || ''), id);
+    const mappedAccount = b?.accountId ? (accountIdMap.get(String(b.accountId)) || null) : null;
+    let status = ['available','inactive','active'].includes(b?.status) ? b.status : 'available';
+    // Do not import a creation state without recreating the server-side quota log.
+    if (status === 'creating' || status === 'claimed') status = 'available';
+    importedBlogs.push({ id, name, domain:`${name}.blogspot.com`, category:String(b?.category || 'General'), status, notes:String(b?.notes || ''), accountId:mappedAccount, createdAt:b?.createdAt || new Date().toISOString(), updatedAt:new Date().toISOString(), creationStartedAt:null });
+  }
+  const importedLogs = [];
+  for (const l of rawLogs) {
+    const accountId = l?.accountId ? accountIdMap.get(String(l.accountId)) : null;
+    const blogId = l?.blogId ? blogIdMap.get(String(l.blogId)) : null;
+    const timestamp = Number(l?.timestamp || l?.createdAt || 0);
+    if (!accountId || !Number.isFinite(timestamp) || timestamp <= 0) continue;
+    importedLogs.push({ accountId, blogId, createdAt:new Date(timestamp).toISOString() });
+  }
+  return { importedAccounts, importedBlogs, importedLogs };
+}
+
+async function insertCloudRows(table, rows) {
+  const chunkSize = 500;
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const { error } = await sb.from(table).insert(rows.slice(i, i + chunkSize));
+    if (error) throw error;
+  }
+}
+
+// ============ LEGACY MIGRATION ============
+function migrateData() { /* localStorage data is intentionally not used in the online build */ }
+
+// ============ LIMITS ============
+const LIMITS = {
+  maxBlogsPerAccount: 100,
+  maxCreationsPerDay: 10,
+  maxCreationsPerHour: 3,
+  cooldownMinutes: 5,
+  blogNameMaxLength: 50,
+  passwordMinLength: 8
+};
+
+// ============ BROWSER CONFIG ============
+const BROWSERS = {
+  chrome: { name: 'Google Chrome', icon: '🟢', color: 'from-green-500 to-green-600' },
+  firefox: { name: 'Firefox', icon: '🦊', color: 'from-orange-500 to-red-600' },
+  edge: { name: 'Microsoft Edge', icon: '🔷', color: 'from-blue-500 to-cyan-600' },
+  brave: { name: 'Brave', icon: '🦁', color: 'from-orange-600 to-red-700' },
+  safari: { name: 'Safari', icon: '🧭', color: 'from-blue-400 to-indigo-500' },
+  opera: { name: 'Opera', icon: '⭕', color: 'from-red-500 to-red-700' },
+  samsung: { name: 'Samsung Internet', icon: '🌐', color: 'from-blue-600 to-indigo-700' },
+  default: { name: 'Browser Default', icon: '🌐', color: 'from-gray-500 to-gray-700' }
+};
+
+// ============ PLATFORM DETECTION ============
+function detectPlatform() {
+  const ua = navigator.userAgent || '';
+  if (/android/i.test(ua)) return 'android';
+  if (/iphone|ipad|ipod/i.test(ua)) return 'ios';
+  if (/mac/i.test(ua)) return 'mac';
+  if (/win/i.test(ua)) return 'windows';
+  if (/linux/i.test(ua)) return 'linux';
+  return 'unknown';
+}
+
+function getAvailableBrowsers() {
+  const platform = detectPlatform();
+  if (platform === 'android') return ['default', 'chrome', 'firefox', 'edge', 'brave', 'opera', 'samsung'];
+  if (platform === 'ios') return ['default', 'chrome', 'firefox', 'edge', 'safari'];
+  if (platform === 'mac') return ['default', 'safari', 'chrome', 'firefox', 'edge', 'brave'];
+  return ['default', 'chrome', 'firefox', 'edge', 'brave'];
+}
+
+function getBrowserUrl(browserKey, url = 'https://www.blogger.com') {
+  // A normal HTTPS URL is the safest cross-browser fallback. Web pages cannot
+  // reliably force Chrome/Firefox/Brave on desktop due browser security.
+  const safeUrl = /^https?:\/\//i.test(url) ? url : 'https://www.blogger.com';
+  const platform = detectPlatform();
+  const hostPath = safeUrl.replace(/^https?:\/\//i, '');
+  
+  if (platform === 'android') {
+    const packages = {
+      chrome: 'com.android.chrome',
+      firefox: 'org.mozilla.firefox',
+      edge: 'com.microsoft.emmx',
+      brave: 'com.brave.browser',
+      opera: 'com.opera.browser',
+      samsung: 'com.sec.android.app.sbrowser'
+    };
+    const pkg = packages[browserKey];
+    if (pkg) return `intent://${hostPath}#Intent;scheme=https;package=${pkg};end`;
+  }
+  if (platform === 'ios') {
+    const encoded = encodeURIComponent(safeUrl);
+    if (browserKey === 'chrome') return `googlechrome://navigate?url=${encoded}`;
+    if (browserKey === 'edge') return safeUrl;
+  }
+  if (platform === 'mac' && browserKey === 'edge') return `microsoft-edge:${safeUrl}`;
+  if ((platform === 'desktop' || platform === 'mac') && browserKey === 'brave') return safeUrl;
+  return safeUrl;
+}
+
+// ============ MIGRATION (backward compatibility) ============
+function normalizeId(value) {
+  const raw = String(value ?? '').trim();
+  return raw && /^[A-Za-z0-9_-]+$/.test(raw) ? raw : createId();
+}
+
+function createId() {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') return globalThis.crypto.randomUUID();
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function migrateData() {
+  let changed = false;
+  
+  if (Array.isArray(creationLog)) {
+    creationLog = creationLog
+      .map(log => {
+        if (typeof log === 'number') { changed = true; return { accountId: null, timestamp: log }; }
+        if (!log || typeof log !== 'object' || !Number.isFinite(Number(log.timestamp))) { changed = true; return null; }
+        const normalized = { accountId: log.accountId ?? null, timestamp: Number(log.timestamp) };
+        if (normalized.accountId !== log.accountId || normalized.timestamp !== log.timestamp) changed = true;
+        return normalized;
+      })
+      .filter(Boolean);
+  } else {
+    creationLog = [];
+    changed = true;
+  }
+
+  blogs = blogs.map(b => {
+    const next = {
+      id: normalizeId(b?.id),
+      name: String(b?.name ?? '').trim().toLowerCase(),
+      domain: String(b?.domain ?? '').trim().toLowerCase(),
+      category: String(b?.category ?? 'General'),
+      status: ['available','creating','claimed','active','inactive'].includes(b?.status) ? b.status : 'available',
+      notes: String(b?.notes ?? ''),
+      accountId: b?.accountId ?? null,
+      createdAt: b?.createdAt || new Date().toISOString(),
+      updatedAt: b?.updatedAt || new Date().toISOString(),
+      creationStartedAt: b?.creationStartedAt || null
+    };
+    if (b?.password !== undefined) delete next.password;
+    if (JSON.stringify(next) !== JSON.stringify(b)) changed = true;
+    return next;
+  });
+
+  const normalizedAccounts = [];
+  const seenEmails = new Set();
+  accounts.forEach(a => {
+    const email = String(a?.email ?? '').trim().toLowerCase();
+    if (!validateEmailFormat(email) || seenEmails.has(email)) { changed = true; return; }
+    seenEmails.add(email);
+    const id = normalizeId(a?.id);
+    if (a?.password) {
+      sessionCredentials.set(id, String(a.password));
+      changed = true;
+    }
+    normalizedAccounts.push({
+      id,
+      email,
+      status: ['active','inactive','blocked'].includes(a?.status) ? a.status : 'active',
+      notes: String(a?.notes ?? ''),
+      createdAt: a?.createdAt || new Date().toISOString(),
+      updatedAt: a?.updatedAt || new Date().toISOString()
+    });
+  });
+  accounts = normalizedAccounts;
+  
+  if (settings.defaultBrowser === undefined && settings.darkMode === undefined) changed = true;
+  settings = { ...settings, appVersion: APP_VERSION };
+  
+  if (changed) saveState();
+}
+
+// ============ VALIDATION ============
+function validateBlogName(name) {
+  const errors = [];
+  if (!name) errors.push('Nama blog harus diisi');
+  else if (name.length > LIMITS.blogNameMaxLength) errors.push(`Maksimal ${LIMITS.blogNameMaxLength} karakter`);
+  else if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(name) && name.length > 1) errors.push('Hanya huruf kecil, angka, dash');
+  return errors;
+}
+
+function validateEmailFormat(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+// ============ QUOTA CALCULATION (PER ACCOUNT) ============
+function getAccountQuota(accountId) {
+  const now = Date.now();
+  const today = new Date().toDateString();
+  const hourAgo = now - 60 * 60 * 1000;
+  
+  // Blog count for this account (claimed, active, creating)
+  const accountBlogs = blogs.filter(b => 
+    b.accountId === accountId && 
+    ['claimed', 'active', 'creating'].includes(b.status)
+  );
+  const totalBlogs = accountBlogs.length;
+  
+  // Creation logs for this account
+  const accountLogs = creationLog.filter(l => l.accountId === accountId);
+  const todayCount = accountLogs.filter(l => new Date(l.timestamp).toDateString() === today).length;
+  const hourCount = accountLogs.filter(l => l.timestamp >= hourAgo).length;
+  const lastCreation = accountLogs.length > 0 ? Math.max(...accountLogs.map(l => l.timestamp)) : 0;
+  const cooldownOk = (now - lastCreation) >= LIMITS.cooldownMinutes * 60 * 1000;
+  const cooldownRemaining = Math.max(0, LIMITS.cooldownMinutes * 60 * 1000 - (now - lastCreation));
+  
+  return {
+    accountId,
+    totalBlogs,
+    todayCount,
+    hourCount,
+    lastCreation,
+    cooldownOk,
+    cooldownRemaining,
+    remainingTotal: LIMITS.maxBlogsPerAccount - totalBlogs,
+    remainingDaily: LIMITS.maxCreationsPerDay - todayCount,
+    remainingHourly: LIMITS.maxCreationsPerHour - hourCount,
+    dailyOk: todayCount < LIMITS.maxCreationsPerDay,
+    hourlyOk: hourCount < LIMITS.maxCreationsPerHour,
+    totalOk: totalBlogs < LIMITS.maxBlogsPerAccount,
+    canCreate: totalBlogs < LIMITS.maxBlogsPerAccount && 
+               todayCount < LIMITS.maxCreationsPerDay && 
+               hourCount < LIMITS.maxCreationsPerHour && 
+               cooldownOk
+  };
+}
+
+function getOverallCapacity() {
+  const activeAccounts = accounts.filter(a => a.status === 'active');
+  let totalCapacity = 0;
+  let totalUsed = 0;
+  let canCreateCount = 0;
+  
+  activeAccounts.forEach(acc => {
+    const q = getAccountQuota(acc.id);
+    totalCapacity += LIMITS.maxBlogsPerAccount;
+    totalUsed += q.totalBlogs;
+    if (q.canCreate) canCreateCount++;
+  });
+  
+  return {
+    totalAccounts: accounts.length,
+    activeAccounts: activeAccounts.length,
+    totalCapacity,
+    totalUsed,
+    remaining: totalCapacity - totalUsed,
+    canCreateCount
+  };
+}
+
+function getRecommendedAccount() {
+  // Return active account with most remaining quota that can create now
+  const activeAccounts = accounts.filter(a => a.status === 'active');
+  let best = null;
+  let bestScore = -1;
+  
+  activeAccounts.forEach(acc => {
+    const q = getAccountQuota(acc.id);
+    if (!q.canCreate) return;
+    // Score: prioritize remaining total, then daily, then hourly
+    const score = q.remainingTotal * 1000 + q.remainingDaily * 10 + q.remainingHourly;
+    if (score > bestScore) {
+      bestScore = score;
+      best = acc;
+    }
+  });
+  
+  return best;
+}
+
+function logCreation(accountId) {
+  if (!accountId) return false;
+  creationLog.push({ accountId, timestamp: Date.now() });
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  creationLog = creationLog.filter(l => l && Number(l.timestamp) >= weekAgo);
+  return saveJson(STORAGE_KEYS.creationLog, creationLog);
+}
+
+async function startCreation(blog, accountId) {
+  if (!sb || !currentUser) return { ok:false, message:'Belum terhubung ke database.' };
+  if (!blog || !accountId) return { ok:false, message:'Blog dan akun wajib dipilih.' };
+  try {
+    const { data, error } = await sb.rpc('start_blog_creation', { p_blog_id: blog.id, p_account_id: accountId });
+    if (error) throw error;
+    if (!data?.ok) return { ok:false, message:data?.message || 'Pembuatan tidak diizinkan.' };
+    await loadCloudData();
+    return { ok:true, data };
+  } catch (err) {
+    console.error('[Blog Manager] start_blog_creation failed', err);
+    return { ok:false, message:err.message || 'Gagal memulai pembuatan.' };
+  }
+}
+
+// ============ TOAST ============
+function showToast(message, type = 'info') {
+  const colors = { success: 'bg-green-500', error: 'bg-red-500', warning: 'bg-yellow-500', info: 'bg-blue-500' };
+  const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+  const toast = document.createElement('div');
+  toast.className = `toast pointer-events-auto ${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 text-sm max-w-sm`;
+  toast.innerHTML = `<span>${icons[type] || icons.info}</span>`;
+  const msg = document.createElement('span');
+  msg.textContent = String(message);
+  toast.appendChild(msg);
+  document.getElementById('toastContainer').appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// ============ CONFIRM ============
+function showConfirm(title, message, callback, icon = '⚠️') {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMessage').textContent = message;
+  document.getElementById('confirmIcon').textContent = icon;
+  confirmCallback = callback;
+  document.getElementById('confirmModal').classList.add('active');
+}
+document.getElementById('confirmOk').onclick = () => {
+  document.getElementById('confirmModal').classList.remove('active');
+  if (confirmCallback) confirmCallback();
+};
+document.getElementById('confirmCancel').onclick = () => {
+  document.getElementById('confirmModal').classList.remove('active');
+};
+
+// ============ VIEW SWITCHING ============
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.view-container').forEach(v => v.classList.add('hidden'));
+  document.getElementById('view-' + view).classList.remove('hidden');
+  
+  document.querySelectorAll('.sidebar-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.view === view);
+  });
+  document.querySelectorAll('.mnav-btn').forEach(btn => {
+    const isActive = btn.dataset.mview === view;
+    btn.classList.toggle('text-blue-600', isActive);
+    btn.classList.toggle('dark:text-blue-400', isActive);
+    btn.classList.toggle('text-gray-500', !isActive);
+    btn.classList.toggle('dark:text-gray-400', !isActive);
+  });
+  
+  const titles = {
+    dashboard: ['Dashboard', 'Ringkasan semua blog & akun'],
+    blogs: ['Daftar Blog', 'Kelola semua blog yang terdaftar'],
+    accounts: ['Akun Gmail', 'Kelola akun Gmail & kuota'],
+    create: ['Buat Blog', 'Pilih blog untuk mulai dibuat'],
+    settings: ['Pengaturan', 'Konfigurasi aplikasi']
+  };
+  if (titles[view]) {
+    document.getElementById('pageTitle').textContent = titles[view][0];
+    document.getElementById('pageSubtitle').textContent = titles[view][1];
+  }
+  
+  if (view === 'dashboard') updateDashboard();
+  if (view === 'blogs') renderBlogs();
+  if (view === 'accounts') renderAccounts();
+  if (view === 'create') renderAvailableList();
+  
+  window.scrollTo(0, 0);
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch]));
+}
+
+function csvEscape(value) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
+}
+
+function normalizeBlogRecord(b) {
+  const name = String(b?.name ?? '').trim().toLowerCase();
+  return {
+    id: normalizeId(b?.id), name, domain: `${name}.blogspot.com`,
+    category: String(b?.category || 'General'),
+    status: ['available','creating','claimed','active','inactive'].includes(b?.status) ? b.status : 'available',
+    notes: String(b?.notes || ''), accountId: b?.accountId || null,
+    createdAt: b?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(), creationStartedAt: b?.creationStartedAt || null
+  };
+}
+
+// ============ RENDER BLOGS ============
+function renderBlogs() {
+  const accountFilter = document.getElementById('accountFilter');
+  const currentValue = accountFilter.value;
+  accountFilter.innerHTML = '';
+  const allOpt = new Option('Semua Akun', '');
+  const unassignedOpt = new Option('⚠️ Belum Dialokasikan', '__unassigned__');
+  accountFilter.add(allOpt);
+  accountFilter.add(unassignedOpt);
+  accounts.forEach(a => accountFilter.add(new Option(a.email, a.id)));
+  accountFilter.value = [...accountFilter.options].some(o => o.value === currentValue) ? currentValue : '';
+
+  const search = document.getElementById('searchInput').value.trim().toLowerCase();
+  const catFilter = document.getElementById('categoryFilter').value;
+  const accFilter = accountFilter.value;
+
+  const filtered = blogs.filter(b => {
+    const name = String(b.name || '').toLowerCase();
+    const domain = String(b.domain || '').toLowerCase();
+    const matchSearch = name.includes(search) || domain.includes(search);
+    const matchCat = !catFilter || b.category === catFilter;
+    const matchTab = currentTab === 'all' || b.status === currentTab;
+    const matchAcc = accFilter === '__unassigned__' ? !b.accountId : (!accFilter || b.accountId === accFilter);
+    return matchSearch && matchCat && matchTab && matchAcc;
+  });
+
+  const empty = document.getElementById('emptyState');
+  if (filtered.length === 0) {
+    document.getElementById('blogTableDesktop').innerHTML = '';
+    document.getElementById('blogCards').innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  const getAccountBadge = (b) => {
+    if (!b.accountId) return '<span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 px-2 py-0.5 rounded">Unassigned</span>';
+    const acc = accounts.find(a => a.id === b.accountId);
+    if (!acc) return '<span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 px-2 py-0.5 rounded">Deleted</span>';
+    return `<span class="text-xs bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 px-2 py-0.5 rounded truncate max-w-[150px] inline-block align-middle">📧 ${escapeHtml(acc.email.split('@')[0])}</span>`;
+  };
+
+  const desktopRows = filtered.map((b, i) => {
+    const id = encodeURIComponent(String(b.id));
+    const domain = escapeHtml(b.domain);
+    const name = escapeHtml(b.name);
+    const category = escapeHtml(b.category);
+    const status = escapeHtml(b.status.toUpperCase());
+    const createBtn = b.status === 'available' ? `<button onclick="openCreateModal(decodeURIComponent('${id}'))" class="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-xs font-semibold">🚀 Buat</button>` : '';
+    return `<tr class="border-t dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+      <td class="px-4 py-3 text-gray-500">${i + 1}</td>
+      <td class="px-4 py-3"><div class="font-medium">${name}</div><a href="https://${domain}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-xs">${domain}</a></td>
+      <td class="px-4 py-3">${getAccountBadge(b)}</td>
+      <td class="px-4 py-3"><span class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">${category}</span></td>
+      <td class="px-4 py-3"><span class="badge status-${escapeHtml(b.status)}">${status}</span></td>
+      <td class="px-4 py-3"><div class="flex gap-1 justify-center flex-wrap">
+        ${createBtn}
+        <button onclick="openInBrowser(decodeURIComponent('${encodeURIComponent(String(b.domain))}'))" class="text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 p-1 rounded text-xs" title="Buka">🌐</button>
+        <button onclick="editBlog(decodeURIComponent('${id}'))" class="text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 p-1 rounded text-xs" title="Edit">✏️</button>
+        <button onclick="quickStatus(decodeURIComponent('${id}'))" class="text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 p-1 rounded text-xs" title="Status">🔄</button>
+        <button onclick="confirmDelete(decodeURIComponent('${id}'))" class="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 p-1 rounded text-xs" title="Hapus">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('blogTableDesktop').innerHTML = desktopRows;
+
+  document.getElementById('blogCards').innerHTML = filtered.map(b => {
+    const id = encodeURIComponent(String(b.id));
+    const createBtn = b.status === 'available' ? `<button onclick="openCreateModal(decodeURIComponent('${id}'))" class="flex-1 bg-purple-600 text-white py-2 rounded-lg text-xs font-semibold">🚀 Buat</button>` : '';
+    return `<div class="blog-card bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-700">
+      <div class="flex items-start justify-between mb-2"><div class="flex-1 min-w-0"><h4 class="font-semibold text-sm truncate">${escapeHtml(b.name)}</h4><a href="https://${escapeHtml(b.domain)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 text-xs hover:underline truncate block">${escapeHtml(b.domain)}</a></div><span class="badge status-${escapeHtml(b.status)} ml-2 flex-shrink-0">${escapeHtml(b.status.toUpperCase())}</span></div>
+      <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-3 flex-wrap"><span class="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">${escapeHtml(b.category)}</span>${getAccountBadge(b)}</div>
+      <div class="grid grid-cols-4 gap-1">
+        ${createBtn}
+        <button onclick="openInBrowser(decodeURIComponent('${encodeURIComponent(String(b.domain))}'))" class="flex-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 py-2 rounded-lg text-xs">🌐</button>
+        <button onclick="editBlog(decodeURIComponent('${id}'))" class="flex-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 py-2 rounded-lg text-xs">✏️</button>
+        <button onclick="quickStatus(decodeURIComponent('${id}'))" class="flex-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 py-2 rounded-lg text-xs">🔄</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============ RENDER ACCOUNTS ============
+function renderAccounts() {
+  const capacity = getOverallCapacity();
+  
+  document.getElementById('acc-total').textContent = capacity.totalAccounts;
+  document.getElementById('acc-capacity').textContent = capacity.totalCapacity;
+  document.getElementById('acc-used').textContent = capacity.totalUsed;
+  document.getElementById('acc-remaining').textContent = capacity.remaining;
+  
+  const list = document.getElementById('accountList');
+  const noAccounts = document.getElementById('noAccounts');
+  
+  if (accounts.length === 0) {
+    list.innerHTML = '';
+    noAccounts.classList.remove('hidden');
+    return;
+  }
+  noAccounts.classList.add('hidden');
+  
+  list.innerHTML = accounts.map(acc => {
+    const q = getAccountQuota(acc.id);
+    const percentUsed = (q.totalBlogs / LIMITS.maxBlogsPerAccount * 100).toFixed(1);
+    const statusColors = {
+      active: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+      inactive: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
+      blocked: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+    };
+    const statusLabels = { active: '✅ Active', inactive: '⏸️ Inactive', blocked: '🚫 Blocked' };
+    const barColor = q.totalBlogs >= 90 ? 'bg-red-500' : q.totalBlogs >= 70 ? 'bg-yellow-500' : 'bg-blue-500';
+    
+    return `
+    <div class="account-card bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-700">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex items-center gap-3 min-w-0 flex-1">
+          <div class="w-12 h-12 bg-gradient-to-br from-pink-500 to-rose-600 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+            ${escapeHtml(acc.email.charAt(0).toUpperCase())}
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold text-sm truncate">${escapeHtml(acc.email)}</p>
+            <div class="flex items-center gap-2 mt-1 flex-wrap">
+              <span class="text-xs ${statusColors[acc.status]} px-2 py-0.5 rounded">${statusLabels[acc.status]}</span>
+              ${q.canCreate ? '<span class="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-0.5 rounded">🟢 Bisa Buat</span>' : '<span class="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-2 py-0.5 rounded">🔴 Penuh/Limit</span>'}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Quota Bars -->
+      <div class="space-y-2 mb-3">
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-gray-600 dark:text-gray-400">Total Blog</span>
+            <span class="font-bold">${q.totalBlogs} / ${LIMITS.maxBlogsPerAccount}</span>
+          </div>
+          <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div class="${barColor} h-2 rounded-full quota-bar" style="width: ${percentUsed}%"></div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div class="bg-gray-50 dark:bg-gray-900 p-2 rounded">
+            <p class="text-gray-500 dark:text-gray-400">Hari Ini</p>
+            <p class="font-bold">${q.todayCount} / ${LIMITS.maxCreationsPerDay}</p>
+          </div>
+          <div class="bg-gray-50 dark:bg-gray-900 p-2 rounded">
+            <p class="text-gray-500 dark:text-gray-400">Per Jam</p>
+            <p class="font-bold">${q.hourCount} / ${LIMITS.maxCreationsPerHour}</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Actions -->
+      <div class="grid grid-cols-4 gap-1">
+        <button onclick="viewAccountDetail('${acc.id}')" class="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 py-2 rounded-lg text-xs">👁️ Detail</button>
+        <button onclick="editAccount('${acc.id}')" class="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 py-2 rounded-lg text-xs">✏️ Edit</button>
+        <button onclick="quickAccountStatus('${acc.id}')" class="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 py-2 rounded-lg text-xs">🔄</button>
+        <button onclick="confirmDeleteAccount('${acc.id}')" class="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 py-2 rounded-lg text-xs">🗑️</button>
+      </div>
+      
+      ${acc.notes ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">📝 ${escapeHtml(acc.notes)}</p>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function viewAccountDetail(accountId) {
+  const acc = accounts.find(a => a.id === accountId);
+  if (!acc) return;
+  const q = getAccountQuota(accountId);
+  const accountBlogs = blogs.filter(b => b.accountId === accountId);
+  
+  const content = document.getElementById('accountDetailContent');
+  content.innerHTML = `
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-16 h-16 bg-gradient-to-br from-pink-500 to-rose-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+        ${escapeHtml(acc.email.charAt(0).toUpperCase())}
+      </div>
+      <div class="flex-1 min-w-0">
+        <h3 class="font-bold text-lg truncate">${acc.email}</h3>
+        <p class="text-xs text-gray-500 dark:text-gray-400">Status: ${escapeHtml(acc.status.toUpperCase())}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">Ditambahkan: ${new Date(acc.createdAt).toLocaleDateString('id-ID')}</p>
+      </div>
+    </div>
+    
+    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 mb-4">
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Password</p>
+      <div class="flex items-center gap-2">
+        <code id="pwdDisplay-${acc.id}" class="flex-1 text-sm">••••••••••</code>
+        <button onclick="toggleAccountPwd('${acc.id}')" class="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">👁️ Lihat</button>
+        <button onclick="copyText('${escapeHtml(getAccountPassword(acc.id) || '[tidak tersimpan]')}')" class="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded">📋 Copy</button>
+      </div>
+    </div>
+    
+    <div class="grid grid-cols-3 gap-2 mb-4">
+      <div class="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg text-center">
+        <p class="text-2xl font-bold text-blue-600">${q.totalBlogs}</p>
+        <p class="text-xs text-blue-700 dark:text-blue-300">Blog</p>
+      </div>
+      <div class="bg-green-50 dark:bg-green-900/30 p-3 rounded-lg text-center">
+        <p class="text-2xl font-bold text-green-600">${q.remainingTotal}</p>
+        <p class="text-xs text-green-700 dark:text-green-300">Sisa</p>
+      </div>
+      <div class="bg-purple-50 dark:bg-purple-900/30 p-3 rounded-lg text-center">
+        <p class="text-2xl font-bold text-purple-600">${q.todayCount}</p>
+        <p class="text-xs text-purple-700 dark:text-purple-300">Hari Ini</p>
+      </div>
+    </div>
+    
+    <div class="border-t dark:border-gray-700 pt-3">
+      <h4 class="font-semibold mb-2">📝 Blog Terkait (${accountBlogs.length})</h4>
+      <div class="space-y-1 max-h-64 overflow-y-auto">
+        ${accountBlogs.length === 0 ? '<p class="text-sm text-gray-500 text-center py-4">Belum ada blog</p>' :
+          accountBlogs.slice(0, 20).map(b => `
+            <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 rounded text-xs">
+              <div class="min-w-0 flex-1">
+                <p class="font-medium truncate">${escapeHtml(b.name)}</p>
+                <p class="text-gray-500 truncate">${escapeHtml(b.domain)}</p>
+              </div>
+              <span class="badge status-${b.status} ml-2">${b.status.toUpperCase()}</span>
+            </div>
+          `).join('') + (accountBlogs.length > 20 ? `<p class="text-xs text-gray-500 text-center py-2">...dan ${accountBlogs.length - 20} blog lainnya</p>` : '')
+        }
+      </div>
+    </div>
+    
+    ${acc.notes ? `<div class="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg"><p class="text-xs text-yellow-800 dark:text-yellow-200"><strong>Catatan:</strong> ${escapeHtml(acc.notes)}</p></div>` : ''}
+  `;
+  
+  document.getElementById('accountDetailModal').classList.add('active');
+}
+
+function toggleAccountPwd(id) {
+  const acc = accounts.find(a => a.id === id);
+  const display = document.getElementById('pwdDisplay-' + id);
+  if (display.textContent === '••••••••••') {
+    display.textContent = getAccountPassword(acc.id) || '[tidak tersimpan]';
+  } else {
+    display.textContent = '••••••••••';
+  }
+}
+
+function copyText(text) {
+  navigator.clipboard?.writeText(String(text || '')).then(() => showToast('Disalin!', 'success')).catch(() => showToast('Clipboard tidak tersedia.', 'warning'));
+}
+
+function closeAccountDetail() {
+  document.getElementById('accountDetailModal').classList.remove('active');
+}
+
+// ============ DASHBOARD ============
+function updateDashboard() {
+  updateStats();
+  updateCapacityBanner();
+  updateTopAccounts();
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = blogs.length;
+  document.getElementById('stat-available').textContent = blogs.filter(b => b.status === 'available').length;
+  document.getElementById('stat-creating').textContent = blogs.filter(b => b.status === 'creating').length;
+  document.getElementById('stat-claimed').textContent = blogs.filter(b => b.status === 'claimed').length;
+  document.getElementById('stat-active').textContent = blogs.filter(b => b.status === 'active').length;
+  document.getElementById('stat-inactive').textContent = blogs.filter(b => b.status === 'inactive').length;
+}
+
+function updateCapacityBanner() {
+  const cap = getOverallCapacity();
+  document.getElementById('cap-used').textContent = cap.totalUsed;
+  document.getElementById('cap-total').textContent = cap.totalCapacity;
+  document.getElementById('cap-accounts').textContent = cap.activeAccounts;
+  document.getElementById('cap-remaining').textContent = cap.remaining;
+  const percent = cap.totalCapacity > 0 ? (cap.totalUsed / cap.totalCapacity * 100) : 0;
+  document.getElementById('cap-bar').style.width = percent + '%';
+}
+
+function updateTopAccounts() {
+  const container = document.getElementById('topAccounts');
+  const activeAccounts = accounts.filter(a => a.status === 'active').slice(0, 3);
+  
+  if (activeAccounts.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-4">
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Belum ada akun aktif</p>
+        <button onclick="openAddAccountModal()" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-lg text-sm">+ Tambah Akun</button>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = activeAccounts.map(acc => {
+    const q = getAccountQuota(acc.id);
+    const percent = (q.totalBlogs / LIMITS.maxBlogsPerAccount * 100).toFixed(1);
+    return `
+      <div class="flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-900 rounded-lg">
+        <div class="w-8 h-8 bg-gradient-to-br from-pink-500 to-rose-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+          ${escapeHtml(acc.email.charAt(0).toUpperCase())}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium truncate">${escapeHtml(acc.email)}</p>
+          <div class="flex items-center gap-2 mt-1">
+            <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+              <div class="bg-blue-500 h-1.5 rounded-full quota-bar" style="width: ${percent}%"></div>
+            </div>
+            <span class="text-xs text-gray-500 flex-shrink-0">${q.totalBlogs}/${LIMITS.maxBlogsPerAccount}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ============ TABS ============
+function setTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const isActive = btn.dataset.tab === tab;
+    btn.classList.toggle('tab-active', isActive);
+    btn.classList.toggle('text-gray-500', !isActive);
+  });
+  renderBlogs();
+}
+
+// ============ ACCOUNT CRUD ============
+function openAddAccountModal() {
+  document.getElementById('accountModalTitle').textContent = '📧 Tambah Akun Gmail';
+  document.getElementById('accountId').value = '';
+  document.getElementById('accountEmail').value = '';
+  document.getElementById('accountPassword').value = '';
+  document.getElementById('accountStatus').value = 'active';
+  document.getElementById('accountNotes').value = '';
+  document.getElementById('accountFormModal').classList.add('active');
+}
+
+function editAccount(id) {
+  const acc = accounts.find(a => a.id === id);
+  if (!acc) return;
+  document.getElementById('accountModalTitle').textContent = '✏️ Edit Akun Gmail';
+  document.getElementById('accountId').value = acc.id;
+  document.getElementById('accountEmail').value = acc.email;
+  document.getElementById('accountPassword').value = getAccountPassword(acc.id);
+  document.getElementById('accountStatus').value = acc.status;
+  document.getElementById('accountNotes').value = acc.notes || '';
+  document.getElementById('accountFormModal').classList.add('active');
+}
+
+function closeAccountModal() {
+  document.getElementById('accountFormModal').classList.remove('active');
+}
+
+function getAccountPassword(accountId) {
+  return sessionCredentials.get(accountId) || '';
+}
+
+async function saveAccount() {
+  const id = document.getElementById('accountId').value;
+  const email = document.getElementById('accountEmail').value.trim().toLowerCase();
+  const password = document.getElementById('accountPassword').value;
+  const status = document.getElementById('accountStatus').value;
+  const notes = document.getElementById('accountNotes').value.trim();
+  if (!email) { showToast('Email harus diisi!', 'error'); return; }
+  if (!validateEmailFormat(email)) { showToast('Format email tidak valid', 'error'); return; }
+  if (!password) { showToast('Password Gmail wajib diisi untuk sesi ini.', 'error'); return; }
+  if (password.length < LIMITS.passwordMinLength) { showToast(`Password minimal ${LIMITS.passwordMinLength} karakter`, 'error'); return; }
+  if (accounts.some(a => a.email === email && a.id !== id)) { showToast('Email sudah terdaftar!', 'error'); return; }
+  const existing = id ? accounts.find(a => a.id === id) : null;
+  const accountId = id || createId();
+  const data = { id:accountId, email, status, notes, createdAt:existing?.createdAt || new Date().toISOString(), updatedAt:new Date().toISOString() };
+  sessionCredentials.set(accountId, password);
+  if (id) accounts = accounts.map(a => a.id === id ? data : a); else accounts.push(data);
+  saveJson(STORAGE_KEYS.accounts, accounts);
+  closeAccountModal(); renderAccounts(); updateDashboard();
+  showToast(id ? 'Akun diperbarui' : 'Akun ditambahkan', 'success');
+}
+
+function quickAccountStatus(id) {
+  const acc = accounts.find(a => a.id === id);
+  if (!acc) return;
+  const cycle = ['active', 'inactive', 'blocked'];
+  acc.status = cycle[(cycle.indexOf(acc.status) + 1) % cycle.length];
+  acc.updatedAt = new Date().toISOString();
+  saveJson(STORAGE_KEYS.accounts, accounts);
+  renderAccounts();
+  updateDashboard();
+  showToast(`Status: ${escapeHtml(acc.status.toUpperCase())}`, 'info');
+}
+
+function confirmDeleteAccount(id) {
+  const acc = accounts.find(a => a.id === id);
+  if (!acc) return;
+  const blogCount = blogs.filter(b => b.accountId === id).length;
+  showConfirm('Hapus Akun?', `Akun "${acc.email}" akan dihapus.${blogCount > 0 ? ` ${blogCount} blog terkait akan menjadi "Unassigned".` : ''}`, () => {
+    accounts = accounts.filter(a => a.id !== id);
+    sessionCredentials.delete(id);
+    blogs.forEach(b => { if (b.accountId === id) b.accountId = null; });
+    saveJson(STORAGE_KEYS.blogs, blogs);
+    saveJson(STORAGE_KEYS.accounts, accounts);
+    renderAccounts(); updateDashboard(); renderBlogs();
+    showToast('Akun dihapus', 'success');
+  }, '🗑️');
+}
+
+// ============ IMPORT ACCOUNTS ============
+function openImportAccountsModal() {
+  document.getElementById('importAccountsModal').classList.add('active');
+}
+function closeImportAccountsModal() {
+  document.getElementById('importAccountsModal').classList.remove('active');
+  document.getElementById('accountFileInput').value = '';
+}
+
+function parseCsvLine(line) {
+  const cells = [];
+  let cell = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (quoted && line[i + 1] === '"') { cell += '"'; i++; }
+      else quoted = !quoted;
+    } else if (ch === ',' && !quoted) {
+      cells.push(cell); cell = '';
+    } else { cell += ch; }
+  }
+  cells.push(cell);
+  return cells.map(v => v.trim());
+}
+
+async function importAccounts() {
+  const file = document.getElementById('accountFileInput').files[0];
+  if (!file) { showToast('Pilih file!', 'error'); return; }
+  const text = await file.text();
+  const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const imported = [];
+  for (const [index, line] of lines.entries()) {
+    let email = '', password = '', notes = '';
+    if (/\.csv$/i.test(file.name)) {
+      const row = parseCsvLine(line);
+      if (index === 0 && /^email$/i.test(row[0] || '')) continue;
+      email = String(row[0] || '').trim().toLowerCase();
+      notes = String(row[2] || '').trim();
+    } else {
+      const parts = line.split('|'); email = String(parts[0] || '').trim().toLowerCase(); password = String(parts[1] || '').trim(); notes = String(parts[2] || '').trim();
+    }
+    if (!validateEmailFormat(email) || accounts.some(a => a.email === email) || imported.some(a => a.email === email)) continue;
+    const id = createId();
+    const hasPassword = Boolean(password && password.length >= LIMITS.passwordMinLength);
+    imported.push({ id, email, status:hasPassword ? 'active' : 'inactive', notes:hasPassword ? notes : `${notes}${notes ? ' ' : ''}[Credential belum diisi pada perangkat ini]`, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() });
+    if (hasPassword) sessionCredentials.set(id, password);
+  }
+  if (!imported.length) { showToast('Tidak ada akun baru yang valid.', 'warning'); return; }
+  accounts.push(...imported);
+  saveJson(STORAGE_KEYS.accounts, accounts);
+  closeImportAccountsModal(); renderAccounts(); updateDashboard();
+  showToast(`Berhasil import ${imported.length} akun.`, 'success');
+}
+
+function exportAccountsCSV() {
+  if (accounts.length === 0) { showToast('Tidak ada akun', 'warning'); return; }
+  // Credentials are intentionally excluded from exports.
+  const header = 'Email,Status,Catatan,Tanggal\n';
+  const rows = accounts.map(a =>
+    [a.email, a.status, a.notes || '', new Date(a.createdAt).toLocaleDateString('id-ID')].map(csvEscape).join(',')
+  ).join('\n');
+  downloadFile('﻿' + header + rows, 'daftar_akun_gmail.csv', 'text/csv;charset=utf-8');
+  showToast('Akun diexport tanpa password', 'success');
+}
+
+// ============ CREATE WIZARD ============
+function renderAvailableList() {
+  const available = blogs.filter(b => b.status === 'available');
+  const container = document.getElementById('availableList');
+  const noAvailable = document.getElementById('noAvailable');
+  if (available.length === 0) {
+    container.innerHTML = '';
+    noAvailable.classList.remove('hidden');
+    return;
+  }
+  noAvailable.classList.add('hidden');
+  container.innerHTML = available.slice(0, 50).map(b => `
+    <button onclick="openCreateModal(decodeURIComponent('${encodeURIComponent(String(b.id))}'))" class="w-full text-left bg-gray-50 dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900/30 p-3 rounded-lg flex items-center justify-between transition">
+      <div class="min-w-0 flex-1">
+        <p class="font-medium text-sm truncate">${escapeHtml(b.name)}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 truncate">${escapeHtml(b.domain)}</p>
+      </div>
+      <span class="text-purple-600 dark:text-purple-400 text-xl ml-2">→</span>
+    </button>
+  `).join('') + (available.length > 50 ? `<p class="text-center text-xs text-gray-500 py-2">...dan ${available.length - 50} blog lainnya</p>` : '');
+}
+
+function openCreateModal(id) {
+  const blog = blogs.find(b => b.id === id);
+  if (!blog) return;
+  
+  const nameErrors = validateBlogName(blog.name);
+  if (nameErrors.length > 0) {
+    showToast('Nama blog tidak valid: ' + nameErrors[0], 'error');
+    return;
+  }
+  
+  currentCreateBlogId = id;
+  currentStep = 1;
+  selectedAccountId = null;
+  
+  document.getElementById('createTargetBlog').textContent = `Target: ${blog.domain}`;
+  
+  // Render account options
+  renderAccountOptions();
+  updateStepUI();
+  document.getElementById('createModal').classList.add('active');
+}
+
+function renderAccountOptions() {
+  const container = document.getElementById('accountOptions');
+  const noAccount = document.getElementById('noAccountForCreate');
+  const activeAccounts = accounts.filter(a => a.status === 'active');
+  
+  if (activeAccounts.length === 0) {
+    container.innerHTML = '';
+    noAccount.classList.remove('hidden');
+    return;
+  }
+  noAccount.classList.add('hidden');
+  
+  const recommended = getRecommendedAccount();
+  
+  container.innerHTML = activeAccounts.map(acc => {
+    const q = getAccountQuota(acc.id);
+    const percent = (q.totalBlogs / LIMITS.maxBlogsPerAccount * 100).toFixed(1);
+    const isRecommended = recommended && recommended.id === acc.id;
+    const isSelected = selectedAccountId === acc.id;
+    const barColor = q.totalBlogs >= 90 ? 'bg-red-500' : q.totalBlogs >= 70 ? 'bg-yellow-500' : 'bg-blue-500';
+    
+    return `
+      <div onclick="selectAccount('${acc.id}')" data-accid="${acc.id}" class="account-option border-2 ${isSelected ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-600'} rounded-lg p-3 ${!q.canCreate ? 'opacity-50' : ''}">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-600 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+            ${escapeHtml(acc.email.charAt(0).toUpperCase())}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <p class="font-semibold text-sm truncate">${escapeHtml(acc.email)}</p>
+              ${isRecommended ? '<span class="recommend-badge text-xs bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded font-bold">⭐ Rekomendasi</span>' : ''}
+              ${!q.canCreate ? '<span class="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-2 py-0.5 rounded">Penuh</span>' : ''}
+            </div>
+            <div class="flex items-center gap-2 mt-1">
+              <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                <div class="${barColor} h-1.5 rounded-full quota-bar" style="width: ${percent}%"></div>
+              </div>
+              <span class="text-xs text-gray-500 flex-shrink-0">${q.totalBlogs}/${LIMITS.maxBlogsPerAccount}</span>
+            </div>
+            <div class="flex gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <span>Hari: ${q.todayCount}/${LIMITS.maxCreationsPerDay}</span>
+              <span>Jam: ${q.hourCount}/${LIMITS.maxCreationsPerHour}</span>
+              ${!q.cooldownOk ? `<span class="text-orange-600">⏳ ${Math.ceil(q.cooldownRemaining/60000)}m</span>` : ''}
+            </div>
+          </div>
+          ${isSelected ? '<span class="text-blue-600 text-2xl">✓</span>' : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function selectAccount(id) {
+  const acc = accounts.find(a => a.id === id);
+  const q = getAccountQuota(id);
+  if (!q.canCreate) {
+    showToast('Akun ini sudah penuh/limit!', 'error');
+    return;
+  }
+  selectedAccountId = id;
+  renderAccountOptions();
+}
+
+function closeCreateModal() {
+  document.getElementById('createModal').classList.remove('active');
+  currentCreateBlogId = null;
+  selectedAccountId = null;
+}
+
+function showQuickCreate() {
+  const available = blogs.filter(b => b.status === 'available');
+  if (available.length === 0) {
+    showToast('Tidak ada blog available. Import dulu!', 'warning');
+    switchView('blogs');
+    return;
+  }
+  if (accounts.filter(a => a.status === 'active').length === 0) {
+    showToast('Tambahkan akun Gmail dulu!', 'warning');
+    switchView('accounts');
+    return;
+  }
+  switchView('create');
+}
+
+function updateStepUI() {
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById('step' + i).classList.add('hidden');
+    const ind = document.getElementById('step' + i + 'ind');
+    ind.classList.remove('step-active', 'step-done', 'step-pending');
+    if (i < currentStep) ind.classList.add('step-done');
+    else if (i === currentStep) ind.classList.add('step-active');
+    else ind.classList.add('step-pending');
+  }
+  document.getElementById('step' + currentStep).classList.remove('hidden');
+  
+  document.getElementById('btnPrev').classList.toggle('hidden', currentStep === 1);
+  const btnNext = document.getElementById('btnNext');
+  if (currentStep === 4) btnNext.classList.add('hidden');
+  else {
+    btnNext.classList.remove('hidden');
+    btnNext.textContent = currentStep === 2 ? '✓ Konfirmasi' : 'Selanjutnya →';
+  }
+}
+
+async function nextStep() {
+  if (currentStep === 1) {
+    if (!selectedAccountId) { showToast('Pilih akun Gmail terlebih dahulu', 'warning'); return; }
+    prepareStep2();
+    const blog = blogs.find(b => b.id === currentCreateBlogId);
+    const acc = accounts.find(a => a.id === selectedAccountId);
+    const q = getAccountQuota(selectedAccountId);
+    if (!blog || !acc || !q.canCreate) { showToast('Quota/status akun belum memenuhi syarat.', 'error'); return; }
+    currentStep = 2;
+  } else if (currentStep === 2) {
+    prepareStep3(); currentStep = 3;
+  } else if (currentStep === 3) {
+    if (!selectedBrowser || !BROWSERS[selectedBrowser]) { showToast('Pilih browser terlebih dahulu', 'warning'); return; }
+    prepareStep4(); currentStep = 4;
+  }
+  updateStepUI();
+}
+
+function prevStep() {
+  if (currentStep > 1) { currentStep--; updateStepUI(); }
+}
+
+function prepareStep2() {
+  const blog = blogs.find(b => b.id === currentCreateBlogId);
+  const acc = accounts.find(a => a.id === selectedAccountId);
+  if (!blog || !acc) return;
+  const q = getAccountQuota(selectedAccountId);
+  document.getElementById('revName').textContent = blog.name;
+  document.getElementById('revDomain').textContent = blog.domain;
+  document.getElementById('revAccount').textContent = acc.email;
+  document.getElementById('revCategory').textContent = blog.category;
+  document.getElementById('revQuota').textContent = `Total: ${q.totalBlogs}/${LIMITS.maxBlogsPerAccount} | Hari: ${q.todayCount}/${LIMITS.maxCreationsPerDay} | Jam: ${q.hourCount}/${LIMITS.maxCreationsPerHour}`;
+  const results = [
+    { ok: validateBlogName(blog.name).length === 0, msg: `Nama blog: ${blog.name.length} karakter` },
+    { ok: true, msg: `Akun: ${acc.email}` },
+    { ok: acc.status === 'active', msg: `Status akun: ${escapeHtml(acc.status.toUpperCase())}` },
+    { ok: q.totalOk, msg: `Quota total: ${q.totalBlogs}/${LIMITS.maxBlogsPerAccount}` },
+    { ok: q.dailyOk, msg: `Quota harian: ${q.todayCount}/${LIMITS.maxCreationsPerDay}` },
+    { ok: q.hourlyOk, msg: `Quota per jam: ${q.hourCount}/${LIMITS.maxCreationsPerHour}` },
+    { ok: q.cooldownOk, msg: q.cooldownOk ? 'Cooldown: Siap' : `Cooldown: ${Math.ceil(q.cooldownRemaining/60000)} menit` }
+  ];
+  document.getElementById('validationResults').innerHTML = results.map(r => {
+    const row = document.createElement('div');
+    row.className = `flex items-center gap-2 text-sm ${r.ok ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`;
+    return `<div class="${row.className}"><span>${r.ok ? '✅' : '❌'}</span><span>${escapeHtml(r.msg)}</span></div>`;
+  }).join('');
+}
+
+function prepareStep3() {
+  const blog = blogs.find(b => b.id === currentCreateBlogId);
+  const acc = accounts.find(a => a.id === selectedAccountId);
+  if (!blog || !acc) return;
+  const platform = detectPlatform();
+  const platformNames = { android: '📱 Android', ios: '📱 iOS', mac: '💻 macOS', windows: '💻 Windows', linux: '💻 Linux', unknown: '🌐 Unknown' };
+  document.getElementById('detectedPlatform').textContent = `Platform: ${platformNames[platform] || platform}`;
+  const available = getAvailableBrowsers();
+  const defaultB = settings.defaultBrowser || 'default';
+  selectedBrowser = available.includes(defaultB) && defaultB !== 'ask' ? defaultB : 'default';
+  document.getElementById('browserOptions').innerHTML = available.map(key => {
+    const b = BROWSERS[key];
+    const isSelected = key === selectedBrowser;
+    return `<button type="button" data-browser="${key}" onclick="selectBrowser('${key}')" class="browser-option ${isSelected ? 'selected' : ''} border-2 ${isSelected ? 'border-blue-500' : 'border-gray-200 dark:border-gray-600'} rounded-lg p-3 flex items-center gap-3 text-left">
+      <div class="w-10 h-10 bg-gradient-to-br ${b.color} rounded-lg flex items-center justify-center text-xl">${b.icon}</div>
+      <div class="flex-1 min-w-0"><p class="font-semibold text-sm">${escapeHtml(b.name)}</p><p class="text-xs text-gray-500">Buka target</p></div>
+      ${isSelected ? '<span class="text-blue-600 text-lg">✓</span>' : ''}
+    </button>`;
+  }).join('');
+}
+
+function selectBrowser(key) {
+  if (!BROWSERS[key]) return;
+  selectedBrowser = key;
+  document.querySelectorAll('#browserOptions .browser-option').forEach(el => {
+    const isSelected = el.dataset.browser === key;
+    el.classList.toggle('selected', isSelected);
+    el.classList.toggle('border-blue-500', isSelected);
+    el.classList.toggle('border-gray-200', !isSelected);
+    el.classList.toggle('dark:border-gray-600', !isSelected);
+    const existing = el.querySelector('.browser-check');
+    if (existing) existing.remove();
+    if (isSelected) { const check = document.createElement('span'); check.className = 'browser-check text-blue-600 text-lg'; check.textContent = '✓'; el.appendChild(check); }
+  });
+}
+
+function prepareStep4() {
+  const blog = blogs.find(b => b.id === currentCreateBlogId);
+  const acc = accounts.find(a => a.id === selectedAccountId);
+  if (!blog || !acc) return;
+  document.getElementById('execDomain').textContent = blog.domain;
+  document.getElementById('execAccount').textContent = `Login: ${acc.email}`;
+}
+
+function openTargetUrl(url, browserKey) {
+  const finalUrl = getBrowserUrl(browserKey, url);
+  try {
+    const popup = window.open(finalUrl, '_blank', 'noopener,noreferrer');
+    if (!popup) { showToast('Popup diblokir browser. Izinkan pop-up untuk membuka target.', 'warning'); return false; }
+    return true;
+  } catch (err) {
+    window.location.href = url;
+    return true;
+  }
+}
+
+async function openInSelectedBrowser() {
+  const blog = blogs.find(b => b.id === currentCreateBlogId);
+  if (!blog || !selectedAccountId) { showToast('Target tidak tersedia.', 'error'); return; }
+  const btn = document.getElementById('btnOpenBrowser');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Memulai...'; }
+  const result = await startCreation(blog, selectedAccountId);
+  if (!result.ok) { if (btn) { btn.disabled = false; btn.textContent = '🚀 Buka di Browser'; } showToast(result.message, 'error'); return; }
+  const opened = openTargetUrl(`https://${blog.domain}`, selectedBrowser);
+  if (opened) { closeCreateModal(); renderAll(); showToast(`Membuka ${blog.domain}`, 'success'); }
+  if (btn) { btn.disabled = false; btn.textContent = '🚀 Buka di Browser'; }
+}
+
+function openInBrowser(domain, forceChoose = false) {
+  const cleanDomain = String(domain || '').trim();
+  if (!/^[a-z0-9.-]+$/i.test(cleanDomain)) { showToast('Domain tidak valid.', 'error'); return; }
+  const defaultB = settings.defaultBrowser || 'default';
+  if (defaultB === 'ask' || forceChoose) { openBrowserChooser(cleanDomain); return; }
+  openTargetUrl(`https://${cleanDomain}`, defaultB);
+}
+
+function openBrowserChooser(domain) {
+  const available = getAvailableBrowsers();
+  const container = document.getElementById('quickBrowserOptions');
+  container.innerHTML = '';
+  available.forEach(key => {
+    const b = BROWSERS[key];
+    const button = document.createElement('button');
+    button.className = 'w-full border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 rounded-lg p-3 flex items-center gap-3 transition';
+    button.type = 'button';
+    button.innerHTML = `<div class="w-10 h-10 bg-gradient-to-br ${b.color} rounded-lg flex items-center justify-center text-xl">${b.icon}</div><div class="flex-1 text-left"><p class="font-semibold text-sm">${escapeHtml(b.name)}</p><p class="text-xs text-gray-500 dark:text-gray-400">Buka ${escapeHtml(domain)}</p></div><span class="text-gray-400">→</span>`;
+    button.addEventListener('click', () => { openTargetUrl(`https://${domain}`, key); closeBrowserModal(); });
+    container.appendChild(button);
+  });
+  document.getElementById('browserModal').classList.add('active');
+}
+
+function openDomainIn(browserKey, domain) {
+  if (!BROWSERS[browserKey]) return;
+  openTargetUrl(`https://${domain}`, browserKey);
+  closeBrowserModal();
+}
+
+function closeBrowserModal() { document.getElementById('browserModal').classList.remove('active'); }
+
+function copyAccountInfo() {
+  const blog = blogs.find(b => b.id === currentCreateBlogId);
+  const acc = accounts.find(a => a.id === selectedAccountId);
+  if (!blog || !acc) return;
+  const password = getAccountPassword(acc.id);
+  const text = password ? `Blog: ${blog.domain}\nAkun: ${acc.email}\nPassword: ${password}` : `Blog: ${blog.domain}\nAkun: ${acc.email}\nPassword: [tidak tersimpan di sesi ini]`;
+  navigator.clipboard?.writeText(text).then(() => showToast('Info disalin!', 'success')).catch(() => showToast('Clipboard tidak tersedia.', 'warning'));
+}
+
+async function markAsClaimed() {
+  const blog = blogs.find(b => b.id === currentCreateBlogId);
+  if (!blog) return;
+  if (blog.status !== 'creating') { showToast('Blog belum dimulai.', 'warning'); return; }
+  const previous = blog.status;
+  blog.status = 'claimed'; blog.updatedAt = new Date().toISOString();
+  saveJson(STORAGE_KEYS.blogs, blogs);
+  closeCreateModal(); renderAll();
+  showToast('Blog ditandai CLAIMED!', 'success');
+  void previous;
+}
+
+async function markAsCreating() {
+  const blog = blogs.find(b => b.id === currentCreateBlogId);
+  if (!blog || !selectedAccountId) return;
+  if (blog.status === 'creating') { showToast('Blog sudah berstatus sedang dibuat.', 'info'); return; }
+  const result = await startCreation(blog, selectedAccountId);
+  if (!result.ok) { showToast(result.message, 'error'); return; }
+  closeCreateModal(); renderAll(); showToast('Blog ditandai sedang dibuat', 'info');
+}
+
+// ============ BLOG CRUD ============
+function openAddModal() {
+  document.getElementById('modalTitle').textContent = 'Tambah Blog';
+  document.getElementById('blogId').value = '';
+  document.getElementById('blogName').value = '';
+  document.getElementById('blogDomain').value = '';
+  document.getElementById('blogCategory').value = 'General';
+  document.getElementById('blogStatus').value = 'available';
+  document.getElementById('blogNotes').value = '';
+  
+  const accSelect = document.getElementById('blogAccount');
+  accSelect.innerHTML = '<option value="">- Belum dialokasikan -</option>' +
+    accounts.map(a => `<option value="${a.id}">${a.email}</option>`).join('');
+  
+  document.getElementById('formModal').classList.add('active');
+}
+
+function editBlog(id) {
+  const b = blogs.find(x => x.id === id);
+  if (!b) return;
+  document.getElementById('modalTitle').textContent = 'Edit Blog';
+  document.getElementById('blogId').value = b.id;
+  document.getElementById('blogName').value = b.name;
+  document.getElementById('blogDomain').value = b.domain;
+  document.getElementById('blogCategory').value = b.category;
+  document.getElementById('blogStatus').value = b.status;
+  document.getElementById('blogNotes').value = b.notes || '';
+  
+  const accSelect = document.getElementById('blogAccount');
+  accSelect.innerHTML = '';
+  accSelect.add(new Option('- Belum dialokasikan -', ''));
+  accounts.forEach(a => {
+    const option = new Option(a.email, a.id);
+    option.selected = a.id === b.accountId;
+    accSelect.add(option);
+  });
+  
+  document.getElementById('formModal').classList.add('active');
+}
+
+function closeModal() { document.getElementById('formModal').classList.remove('active'); }
+function openImportModal() { document.getElementById('importModal').classList.add('active'); }
+function closeImportModal() { document.getElementById('importModal').classList.remove('active'); }
+
+document.getElementById('blogName').addEventListener('input', (e) => {
+  const name = e.target.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+  e.target.value = name;
+  document.getElementById('blogDomain').value = name ? name + '.blogspot.com' : '';
+});
+
+async function saveBlog() {
+  const id = document.getElementById('blogId').value;
+  const name = document.getElementById('blogName').value.trim().toLowerCase();
+  const category = document.getElementById('blogCategory').value;
+  const status = document.getElementById('blogStatus').value;
+  const notes = document.getElementById('blogNotes').value.trim();
+  const accountId = document.getElementById('blogAccount').value || null;
+  const nameErrors = validateBlogName(name);
+  if (nameErrors.length > 0) { showToast(nameErrors[0], 'error'); return; }
+  const existing = id ? blogs.find(b => b.id === id) : null;
+  if (id && !existing) { showToast('Blog tidak ditemukan.', 'error'); return; }
+  if (blogs.some(b => b.name === name && b.id !== id)) { showToast('Blog sudah ada!', 'error'); return; }
+  if (status === 'creating' && (!existing || existing.status === 'available')) {
+    if (!accountId) { showToast('Status Creating membutuhkan akun Gmail.', 'error'); return; }
+    const target = existing || { id:createId(), name, domain:`${name}.blogspot.com`, category, status:'available', notes, accountId:null, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), creationStartedAt:null };
+    if (!existing) {
+      blogs.push(target);
+      await saveJson(STORAGE_KEYS.blogs, blogs);
+    }
+    const result = await startCreation(target, accountId);
+    if (!result.ok) { if (!existing) { blogs = blogs.filter(b => b.id !== target.id); await saveJson(STORAGE_KEYS.blogs, blogs); } showToast(result.message, 'error'); return; }
+    const fresh = blogs.find(b => b.id === target.id);
+    if (fresh) { fresh.category = category; fresh.notes = notes; }
+    saveJson(STORAGE_KEYS.blogs, blogs);
+    closeModal(); renderAll(); showToast('Blog mulai dibuat.', 'success'); return;
+  }
+  if ((status === 'claimed' || status === 'active') && !accountId && !existing?.accountId) { showToast('Status ini membutuhkan akun Gmail.', 'error'); return; }
+  const data = { id:id || createId(), name, domain:name + '.blogspot.com', category, status, notes, accountId, createdAt:existing?.createdAt || new Date().toISOString(), updatedAt:new Date().toISOString(), creationStartedAt:existing?.creationStartedAt || null };
+  if (id) blogs = blogs.map(b => b.id === id ? data : b); else blogs.push(data);
+  saveJson(STORAGE_KEYS.blogs, blogs);
+  closeModal(); renderAll(); showToast('Blog disimpan', 'success');
+}
+
+function confirmDelete(id) {
+  showConfirm('Hapus Blog?', 'Blog yang dihapus tidak dapat dikembalikan.', () => {
+    blogs = blogs.filter(b => b.id !== id);
+    saveJson(STORAGE_KEYS.blogs, blogs);
+    renderBlogs();
+    updateDashboard();
+    renderAccounts();
+    showToast('Blog dihapus', 'success');
+  }, '🗑️');
+}
+
+async function quickStatus(id) {
+  const b = blogs.find(x => x.id === id);
+  if (!b) return;
+  const cycle = ['available', 'creating', 'claimed', 'active', 'inactive'];
+  const nextStatus = cycle[(cycle.indexOf(b.status) + 1) % cycle.length];
+  if ((nextStatus === 'creating' || nextStatus === 'claimed') && b.status === 'available') {
+    if (!b.accountId) { showToast('Assign akun Gmail sebelum memulai pembuatan.', 'warning'); return; }
+    const result = await startCreation(b, b.accountId);
+    if (!result.ok) { showToast(result.message, 'error'); return; }
+    if (nextStatus === 'claimed') {
+      b.status = 'claimed'; b.updatedAt = new Date().toISOString(); saveJson(STORAGE_KEYS.blogs, blogs);
+    }
+  } else {
+    b.status = nextStatus; b.updatedAt = new Date().toISOString(); saveJson(STORAGE_KEYS.blogs, blogs);
+  }
+  renderAll(); showToast(`Status: ${b.status.toUpperCase()}`, 'info');
+}
+
+// ============ IMPORT/EXPORT ============
+async function importFile() {
+  const file = document.getElementById('fileInput').files[0];
+  if (!file) { showToast('Pilih file!', 'error'); return; }
+  try {
+    const content = await file.text();
+    let data;
+    if (/\.json$/i.test(file.name)) {
+      try { data = JSON.parse(content); } catch { showToast('File JSON tidak valid', 'error'); return; }
+    } else {
+      data = content.split(/\r?\n/).map(line => {
+        const match = line.trim().match(/^\d+\.\s*([a-z0-9-]+)\s*-?/i);
+        return match ? { name:match[1].toLowerCase(), status:'available' } : null;
+      }).filter(Boolean);
+    }
+    const normalized = normalizeImportedBackup(data);
+    const accountRows = normalized.importedAccounts.map(a => accountToRow(a, currentUser.id));
+    const blogRows = normalized.importedBlogs.map(b => blogToRow(b, currentUser.id));
+    await insertCloudRows('gmail_accounts', accountRows);
+    await insertCloudRows('blogs', blogRows);
+    if (normalized.importedLogs.length) {
+      await insertCloudRows('creation_logs', normalized.importedLogs.map(l => ({ user_id:currentUser.id, blog_id:l.blogId, account_id:l.accountId, created_at:l.createdAt })));
+    }
+    await loadCloudData();
+    closeImportModal(); document.getElementById('fileInput').value = '';
+    showToast(`Import selesai: ${normalized.importedAccounts.length} akun, ${normalized.importedBlogs.length} blog.`, 'success');
+  } catch (err) {
+    console.error(err); showToast(`Import gagal: ${err.message || err}`, 'error');
+  }
+}
+
+function exportCSV() {
+  if (blogs.length === 0) { showToast('Tidak ada data', 'warning'); return; }
+  const header = 'No,Nama,Domain,Kategori,Status,Account Email,Catatan\n';
+  const rows = blogs.map((b, i) => {
+    const acc = accounts.find(a => a.id === b.accountId);
+    return [i + 1, b.name, b.domain, b.category, b.status, acc?.email || '', b.notes || ''].map(csvEscape).join(',');
+  }).join('\n');
+  downloadFile('\uFEFF' + header + rows, 'daftar_blog.csv', 'text/csv;charset=utf-8');
+  showToast('CSV diexport', 'success');
+}
+
+function exportJSON() {
+  const data = { schemaVersion: APP_VERSION, blogs, accounts, creationLog, settings, exportedAt: new Date().toISOString() };
+  downloadFile(JSON.stringify(data, null, 2), 'backup_blog_manager_v3.json', 'application/json');
+  showToast('Backup dibuat tanpa password', 'success');
+}
+
+function clearAllData() {
+  showConfirm('Hapus Semua Data?', 'Semua blog, akun, log, dan pengaturan cloud Anda akan dihapus permanen.', async () => {
+    try {
+      const { error } = await sb.rpc('clear_all_user_data');
+      if (error) throw error;
+      blogs = []; accounts = []; creationLog = []; settings = { defaultBrowser:'default', darkMode:false, timezone:'Asia/Jakarta', appVersion:APP_VERSION }; sessionCredentials.clear();
+      lastSnapshots = { blogs:[], accounts:[], settings:cloneData(settings) };
+      applyTheme(); renderAll(); switchView('dashboard');
+      showToast('Semua data cloud dihapus', 'success');
+    } catch (err) { showToast(`Gagal menghapus data: ${err.message || err}`, 'error'); }
+  }, '⚠️');
+}
+
+function downloadFile(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ============ DARK MODE ============
+function toggleDarkMode() {
+  settings.darkMode = !Boolean(settings.darkMode);
+  applyTheme();
+  saveJson(STORAGE_KEYS.settings, settings);
+}
+
+function togglePwd(id) {
+  const input = document.getElementById(id);
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+// ============ INIT ============
+async function signInUser(email, password) {
+  if (!sb) return;
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+}
+
+async function signUpUser(email, password) {
+  if (!sb) return;
+  const redirectTo = window.location.origin + window.location.pathname;
+  const { data, error } = await sb.auth.signUp({ email, password, options:{ emailRedirectTo:redirectTo } });
+  if (error) throw error;
+  return data;
+}
+
+async function sendResetPassword(email) {
+  const redirectTo = window.location.origin + window.location.pathname;
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) throw error;
+}
+
+async function signOutUser() {
+  try {
+    if (realtimeChannel) { await sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+    await sb.auth.signOut();
+  } catch (err) { showToast(`Logout gagal: ${err.message || err}`, 'error'); }
+}
+
+function bindAuthUI() {
+  document.getElementById('loginTab')?.addEventListener('click', () => {
+    document.getElementById('loginForm').classList.remove('hidden');
+    document.getElementById('signupForm').classList.add('hidden');
+    document.getElementById('loginTab').className = 'flex-1 pb-2 border-b-2 border-blue-600 text-blue-600 font-semibold text-sm';
+    document.getElementById('signupTab').className = 'flex-1 pb-2 border-b-2 border-transparent text-gray-500 text-sm';
+  });
+  document.getElementById('signupTab')?.addEventListener('click', () => {
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('signupForm').classList.remove('hidden');
+    document.getElementById('loginTab').className = 'flex-1 pb-2 border-b-2 border-transparent text-gray-500 text-sm';
+    document.getElementById('signupTab').className = 'flex-1 pb-2 border-b-2 border-blue-600 text-blue-600 font-semibold text-sm';
+  });
+  document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const btn = document.getElementById('loginBtn'); btn.disabled = true; btn.textContent = 'Masuk...';
+      await signInUser(document.getElementById('authEmail').value.trim(), document.getElementById('authPassword').value);
+    } catch (err) { setAuthMessage(err.message || 'Login gagal.', 'error'); }
+    finally { const btn = document.getElementById('loginBtn'); btn.disabled = false; btn.textContent = 'Masuk'; }
+  });
+  document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const btn = document.getElementById('signupBtn'); btn.disabled = true; btn.textContent = 'Membuat...';
+      const data = await signUpUser(document.getElementById('signupEmail').value.trim(), document.getElementById('signupPassword').value);
+      if (!data?.session) setAuthMessage('Akun dibuat. Cek email Anda untuk verifikasi sebelum login.', 'success');
+      else setAuthMessage('Akun dibuat dan Anda sudah login.', 'success');
+    } catch (err) { setAuthMessage(err.message || 'Pendaftaran gagal.', 'error'); }
+    finally { const btn = document.getElementById('signupBtn'); btn.disabled = false; btn.textContent = 'Buat Akun'; }
+  });
+  document.getElementById('forgotBtn')?.addEventListener('click', async () => {
+    const email = document.getElementById('authEmail').value.trim();
+    if (!email) { setAuthMessage('Isi email terlebih dahulu.', 'warning'); return; }
+    try { await sendResetPassword(email); setAuthMessage('Email reset password sudah dikirim jika alamat tersebut terdaftar.', 'success'); }
+    catch (err) { setAuthMessage(err.message || 'Gagal mengirim reset password.', 'error'); }
+  });
+}
+
+async function handleSession(session) {
+  if (!session?.user) {
+    currentUser = null; blogs=[]; accounts=[]; creationLog=[]; sessionCredentials.clear();
+    setAuthScreen(true); return;
+  }
+  currentUser = session.user;
+  document.getElementById('userEmailLabel').textContent = currentUser.email || '';
+  setAuthScreen(false);
+  try { await loadCloudData(); setupRealtime(); switchView('dashboard'); }
+  catch (_) { /* error already displayed */ }
+}
+
+async function init() {
+  document.querySelectorAll('aside, main, nav, body > button').forEach(el => el.classList.add('app-protected'));
+  bindAuthUI();
+  if (!isConfigured()) {
+    const box = document.getElementById('authConfigError');
+    box.classList.remove('hidden');
+    box.textContent = 'Supabase belum dikonfigurasi. Edit SUPABASE_CONFIG di bagian atas script: isi Project URL dan Publishable Key dari Supabase Dashboard.';
+    setAuthScreen(true);
+    return;
+  }
+  try {
+    if (!window.supabase?.createClient) throw new Error('Supabase JS gagal dimuat. Periksa koneksi internet/CDN.');
+    sb = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.publishableKey, { auth:{ autoRefreshToken:true, persistSession:true, detectSessionInUrl:true } });
+    sb.auth.onAuthStateChange((_event, session) => { setTimeout(() => handleSession(session), 0); });
+    const { data, error } = await sb.auth.getSession();
+    if (error) throw error;
+    await handleSession(data.session);
+    window.addEventListener('focus', () => { if (currentUser) refreshNow(); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && currentUser) refreshNow(); });
+  } catch (err) {
+    console.error(err);
+    const box = document.getElementById('authConfigError'); box.classList.remove('hidden'); box.textContent = err.message || String(err); setAuthScreen(true);
+  }
+}
+
+init();
+
+</script>
+
+</body>
+</html>
